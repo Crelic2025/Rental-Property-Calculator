@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  RENTAL PROPERTY CALCULATOR v5.1
+  RENTAL PROPERTY CALCULATOR v5.0
   House Hack Edition — Minnesota
   All formulas verified against BiggerPockets Four Square Method
   Features: Rapid Screen, Saved Defaults, RentCast API, Comp Links, MAO Solver
@@ -42,7 +42,6 @@
   --r-sm: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-  --blue: #2563eb;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -912,79 +911,6 @@ select {
 .help-example .he-label { color: var(--text3); }
 .help-example .he-val { color: var(--text); font-weight: 600; }
 .help-example .he-result { color: var(--green); font-weight: 600; }
-
-/* ── Analysis Over Time Table ── */
-.aot-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
-.aot-table {
-  width: 100%;
-  min-width: 800px;
-  border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.aot-table th {
-  background: var(--bg);
-  font-family: var(--sans);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text3);
-  padding: 10px 10px;
-  text-align: right;
-  border-bottom: 2px solid var(--border);
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-}
-.aot-table th:first-child { text-align: center; width: 50px; }
-.aot-table td {
-  padding: 8px 10px;
-  text-align: right;
-  border-bottom: 1px solid var(--bg);
-  white-space: nowrap;
-  font-weight: 500;
-}
-.aot-table td:first-child {
-  text-align: center;
-  font-weight: 700;
-  color: var(--text2);
-}
-.aot-table tr.aot-pos { background: rgba(22,163,74,0.04); }
-.aot-table tr.aot-neg { background: rgba(220,38,38,0.04); }
-.aot-table tr:hover { background: rgba(37,99,235,0.04); }
-.aot-val-pos { color: var(--green); }
-.aot-val-neg { color: var(--red); }
-
-/* ── SVG Charts ── */
-.charts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 16px;
-}
-.chart-box {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 16px;
-  box-shadow: var(--shadow);
-}
-.chart-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text2);
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.chart-svg {
-  width: 100%;
-  height: auto;
-}
-@media (max-width: 700px) {
-  .charts-grid { grid-template-columns: 1fr; }
-}
 </style>
 </head>
 <body>
@@ -992,7 +918,7 @@ select {
 
 <!-- ═══ HEADER ═══ -->
 <div class="header">
-  <div class="header-badge">v5.1 · House Hack Edition · Minnesota</div>
+  <div class="header-badge">v5.0 · House Hack Edition · Minnesota</div>
   <h1>Rental Property Calculator</h1>
   <p>Plug in the numbers, see if the deal works.</p>
 </div>
@@ -1609,73 +1535,6 @@ select {
   </div>
 </div>
 
-<!-- ═══ ANALYSIS OVER TIME ═══ -->
-<div class="card" id="card-aot">
-  <div class="card-hd" onclick="toggle('card-aot')">
-    <div class="card-num" style="background:var(--accent-bg);color:var(--accent);border-color:var(--accent-border);">📈</div>
-    <div class="card-hd-text">
-      <div class="card-title">Analysis Over Time</div>
-      <div class="card-sub">What does this deal look like in 5, 10, 30 years?</div>
-    </div>
-    <svg class="card-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
-  </div>
-  <div class="card-body">
-    <div class="explain">
-      <strong>See how the investment compounds over time.</strong> Income and expenses grow with inflation. Property value appreciates. The mortgage slowly gets paid down. This table shows the key milestone years so you can see when the deal gets really good — and whether "Profit if Sold" justifies the risk.
-    </div>
-    <div class="field-row" style="margin-bottom:14px;">
-      <div class="field">
-        <label class="field-label">Annual Income Growth</label>
-        <span class="field-hint">Rent increases — 2% is conservative</span>
-        <div class="input-wrap" data-suf="%">
-          <input type="number" id="aotIncGrowth" value="2" step="0.5" oninput="calc()"><span class="suf">%</span>
-        </div>
-      </div>
-      <div class="field">
-        <label class="field-label">Annual Expense Growth</label>
-        <span class="field-hint">Inflation on taxes, insurance, repairs</span>
-        <div class="input-wrap" data-suf="%">
-          <input type="number" id="aotExpGrowth" value="2" step="0.5" oninput="calc()"><span class="suf">%</span>
-        </div>
-      </div>
-    </div>
-    <div class="field-row" style="margin-bottom:14px;">
-      <div class="field">
-        <label class="field-label">Annual Appreciation</label>
-        <span class="field-hint">Property value growth — 3% is MN average</span>
-        <div class="input-wrap" data-suf="%">
-          <input type="number" id="aotAppreciation" value="3" step="0.5" oninput="calc()"><span class="suf">%</span>
-        </div>
-      </div>
-      <div class="field">
-        <label class="field-label">Sales Expenses</label>
-        <span class="field-hint">Agent fees + closing when you sell (~8%)</span>
-        <div class="input-wrap" data-suf="%">
-          <input type="number" id="aotSalesExp" value="8" step="0.5" oninput="calc()"><span class="suf">%</span>
-        </div>
-      </div>
-    </div>
-    <div class="aot-wrap">
-      <table class="aot-table" id="aotTable">
-        <thead><tr>
-          <th>Year</th><th>Annual Income</th><th>Annual Expenses</th><th>Cashflow</th><th>CoC ROI</th><th>Property Value</th><th>Loan Balance</th><th>Equity</th><th>Profit if Sold</th><th>Ann. Return</th>
-        </tr></thead>
-        <tbody id="aotBody"></tbody>
-      </table>
-    </div>
-    <div class="charts-grid">
-      <div class="chart-box">
-        <div class="chart-label">Cash Flow Over Time</div>
-        <svg id="chartCF" class="chart-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet"></svg>
-      </div>
-      <div class="chart-box">
-        <div class="chart-label">Equity Build</div>
-        <svg id="chartEquity" class="chart-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet"></svg>
-      </div>
-    </div>
-  </div>
-</div>
-
 </div><!-- /fullMode -->
 </div><!-- /app -->
 
@@ -2093,105 +1952,6 @@ function calc() {
     vd.textContent = `${critFails} critical test(s) failed. The math says walk away or submit an offer at the MAO price below — not the asking price.`;
   }
 
-  // ── Pro Forma Cap Rate + Initial Equity (added to returns card) ──
-  const arv = price + repairs;
-  const proFormaCap = arv > 0 ? (noi * 12) / arv : 0;
-  const initialEquity = (arv - price) + downPayment;
-
-  // Append to existing returnCards
-  const existingReturns = $('returnCards').innerHTML;
-  $('returnCards').innerHTML = existingReturns + `
-    <div class="metric">
-      <div class="metric-name">Pro Forma Cap</div>
-      <div class="metric-formula">Annual NOI ÷ After Repair Value</div>
-      <div class="metric-val" style="color:${proFormaCap > 0 ? 'var(--accent)' : 'var(--red)'}">${fmtPct(proFormaCap)}</div>
-    </div>
-    <div class="metric">
-      <div class="metric-name">Initial Equity</div>
-      <div class="metric-formula">(ARV − Price) + Down Payment</div>
-      <div class="metric-val" style="color:${initialEquity > 0 ? 'var(--green)' : 'var(--text3)'}">${fmt(initialEquity)}</div>
-    </div>`;
-
-  // ── Analysis Over Time ──
-  const aotIncGrowth = getNum('aotIncGrowth') / 100;
-  const aotExpGrowth = getNum('aotExpGrowth') / 100;
-  const aotAppreciation = getNum('aotAppreciation') / 100;
-  const aotSalesExp = getNum('aotSalesExp') / 100;
-  const loanTermYears = term / 12;
-  const annualMortgage = (pi + mip) * 12;
-
-  const milestones = [1, 2, 3, 5, 10, 15, 20, 25, 30];
-  const aotData = []; // store all 30 years for charts
-  let cumCF = 0;
-  let curAnnualIncome = gsi * 12;
-  let curAnnualOpex = opexTotal * 12;
-  let curPropValue = price;
-  let loanBal = loanAmt;
-
-  for (let yr = 1; yr <= 30; yr++) {
-    // Grow income and opex (year 1 = base, year 2+ = compounded)
-    if (yr > 1) {
-      curAnnualIncome *= (1 + aotIncGrowth);
-      curAnnualOpex *= (1 + aotExpGrowth);
-    }
-    curPropValue *= (1 + aotAppreciation);
-
-    const totalAnnualExp = curAnnualOpex + (yr <= loanTermYears ? annualMortgage : 0);
-    const annualCF = curAnnualIncome - totalAnnualExp;
-    cumCF += annualCF;
-
-    // Amortize loan balance for this year (12 monthly payments)
-    if (yr <= loanTermYears && loanBal > 0) {
-      for (let m = 0; m < 12; m++) {
-        const intPmt = loanBal * monthlyRate;
-        const prinPmt = pi - intPmt;
-        loanBal = Math.max(0, loanBal - prinPmt);
-      }
-    } else {
-      loanBal = 0;
-    }
-
-    const equity = curPropValue - loanBal;
-    const cocROI = totalCashIn > 0 ? (annualCF / totalCashIn) * 100 : 0;
-    const profitIfSold = curPropValue - (curPropValue * aotSalesExp) - loanBal - totalCashIn + cumCF;
-    let annReturn = 0;
-    if (totalCashIn > 0 && yr > 0) {
-      const ratio = 1 + (profitIfSold / totalCashIn);
-      if (ratio > 0) annReturn = (Math.pow(ratio, 1 / yr) - 1) * 100;
-    }
-
-    aotData.push({
-      yr, annualIncome: curAnnualIncome, annualExp: totalAnnualExp,
-      annualCF, cocROI, propValue: curPropValue, loanBal,
-      equity, profitIfSold, annReturn
-    });
-  }
-
-  // Render AOT table (milestone years only)
-  const tbody = $('aotBody');
-  tbody.innerHTML = milestones.filter(yr => yr <= 30).map(yr => {
-    const d = aotData[yr - 1];
-    const rc = d.annualCF >= 0 ? 'aot-pos' : 'aot-neg';
-    const cfCol = d.annualCF >= 0 ? 'aot-val-pos' : 'aot-val-neg';
-    const profCol = d.profitIfSold >= 0 ? 'aot-val-pos' : 'aot-val-neg';
-    return `<tr class="${rc}">
-      <td>${d.yr}</td>
-      <td>${fmt(d.annualIncome)}</td>
-      <td>${fmt(d.annualExp)}</td>
-      <td class="${cfCol}">${fmt(d.annualCF)}</td>
-      <td class="${cfCol}">${d.cocROI.toFixed(1)}%</td>
-      <td>${fmt(d.propValue)}</td>
-      <td>${fmt(d.loanBal)}</td>
-      <td class="aot-val-pos">${fmt(d.equity)}</td>
-      <td class="${profCol}">${fmt(d.profitIfSold)}</td>
-      <td class="${profCol}">${d.annReturn.toFixed(1)}%</td>
-    </tr>`;
-  }).join('');
-
-  // ── SVG Charts ──
-  renderCFChart(aotData);
-  renderEquityChart(aotData);
-
   // ── MAO ──
   const tenantOI = otherIncome * (tenantRents.length / n);
   calcMAO({ n, gsi, tenantGSI, tenantOI, tenantRents, ownerUnit, vacRate, maintRate, capexRate, mgmtRate,
@@ -2287,8 +2047,7 @@ const DEFAULT_FIELDS = [
   'annualTax', 'annualIns', 'utilities', 'snow',
   'vacancyRate', 'maintRate', 'capexRate', 'mgmtRate',
   'comfortCap', 'totalCash', 'livingExp', 'zipCode',
-  'targetCF', 'targetCoCR',
-  'aotIncGrowth', 'aotExpGrowth', 'aotAppreciation', 'aotSalesExp'
+  'targetCF', 'targetCoCR'
 ];
 
 // Per-deal fields that get cleared on "New Deal"
@@ -2325,8 +2084,7 @@ function resetDefaults() {
     annualTax:'7200', annualIns:'2400', utilities:'150', snow:'100',
     vacancyRate:'7', maintRate:'8', capexRate:'8', mgmtRate:'8',
     comfortCap:'3200', totalCash:'60000', livingExp:'2000', zipCode:'55345',
-    targetCF:'0', targetCoCR:'0',
-    aotIncGrowth:'2', aotExpGrowth:'2', aotAppreciation:'3', aotSalesExp:'8'
+    targetCF:'0', targetCoCR:'0'
   };
   Object.entries(defaults).forEach(([id, val]) => {
     const el = $(id);
@@ -3047,120 +2805,6 @@ function useCompRent(unitIndex, rent) {
     calc();
     toast(`Unit ${unitIndex + 1} set to ${fmt(rent)}`);
   }
-}
-
-/* ═══ SVG CHART RENDERERS ═══ */
-function renderCFChart(data) {
-  const svg = $('chartCF');
-  if (!svg) return;
-  const W = 400, H = 200, pad = { t: 10, r: 15, b: 30, l: 55 };
-  const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
-  const vals = data.map(d => d.annualCF);
-  const maxV = Math.max(...vals.map(Math.abs), 1);
-  const yMin = -maxV * 1.1, yMax = maxV * 1.1;
-  const yRange = yMax - yMin;
-
-  function x(yr) { return pad.l + ((yr - 1) / 29) * iW; }
-  function y(v) { return pad.t + ((yMax - v) / yRange) * iH; }
-
-  let html = '';
-  // Grid lines
-  const ticks = 5;
-  for (let i = 0; i <= ticks; i++) {
-    const v = yMin + (yRange * i / ticks);
-    const yp = y(v);
-    html += `<line x1="${pad.l}" y1="${yp}" x2="${W-pad.r}" y2="${yp}" stroke="var(--border)" stroke-width="0.5"/>`;
-    html += `<text x="${pad.l-5}" y="${yp+3}" text-anchor="end" font-family="DM Mono,monospace" font-size="8" fill="var(--text4)">${(v/1000).toFixed(0)}k</text>`;
-  }
-  // Zero line
-  html += `<line x1="${pad.l}" y1="${y(0)}" x2="${W-pad.r}" y2="${y(0)}" stroke="var(--text3)" stroke-width="1" stroke-dasharray="4,3"/>`;
-
-  // X axis labels
-  [1,5,10,15,20,25,30].forEach(yr => {
-    html += `<text x="${x(yr)}" y="${H-5}" text-anchor="middle" font-family="DM Mono,monospace" font-size="8" fill="var(--text4)">${yr}</text>`;
-  });
-  html += `<text x="${pad.l + iW/2}" y="${H}" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="8" fill="var(--text4)">Year</text>`;
-
-  // Line segments (green above zero, red below)
-  for (let i = 0; i < data.length - 1; i++) {
-    const x1 = x(data[i].yr), y1 = y(data[i].annualCF);
-    const x2 = x(data[i+1].yr), y2 = y(data[i+1].annualCF);
-    const col = (data[i].annualCF >= 0 && data[i+1].annualCF >= 0) ? 'var(--green)' :
-                (data[i].annualCF < 0 && data[i+1].annualCF < 0) ? 'var(--red)' : 'var(--amber)';
-    html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`;
-  }
-  // Dots at milestone years
-  [1,5,10,15,20,25,30].forEach(yr => {
-    const d = data[yr-1];
-    if (!d) return;
-    const col = d.annualCF >= 0 ? 'var(--green)' : 'var(--red)';
-    html += `<circle cx="${x(yr)}" cy="${y(d.annualCF)}" r="3" fill="${col}"/>`;
-  });
-
-  svg.innerHTML = html;
-}
-
-function renderEquityChart(data) {
-  const svg = $('chartEquity');
-  if (!svg) return;
-  const W = 400, H = 200, pad = { t: 10, r: 15, b: 30, l: 55 };
-  const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
-  const allVals = data.map(d => d.propValue);
-  const yMax = Math.max(...allVals) * 1.05;
-  const yMin = 0;
-  const yRange = yMax - yMin;
-
-  function x(yr) { return pad.l + ((yr - 1) / 29) * iW; }
-  function y(v) { return pad.t + ((yMax - v) / yRange) * iH; }
-
-  let html = '';
-  // Grid lines
-  const ticks = 5;
-  for (let i = 0; i <= ticks; i++) {
-    const v = yMin + (yRange * i / ticks);
-    const yp = y(v);
-    html += `<line x1="${pad.l}" y1="${yp}" x2="${W-pad.r}" y2="${yp}" stroke="var(--border)" stroke-width="0.5"/>`;
-    html += `<text x="${pad.l-5}" y="${yp+3}" text-anchor="end" font-family="DM Mono,monospace" font-size="8" fill="var(--text4)">${(v/1000).toFixed(0)}k</text>`;
-  }
-  // X axis
-  [1,5,10,15,20,25,30].forEach(yr => {
-    html += `<text x="${x(yr)}" y="${H-5}" text-anchor="middle" font-family="DM Mono,monospace" font-size="8" fill="var(--text4)">${yr}</text>`;
-  });
-
-  // Equity fill (area between property value and loan balance)
-  let fillPath = `M ${x(1)} ${y(data[0].propValue)}`;
-  data.forEach(d => { fillPath += ` L ${x(d.yr)} ${y(d.propValue)}`; });
-  // go back along loan balance
-  for (let i = data.length - 1; i >= 0; i--) {
-    fillPath += ` L ${x(data[i].yr)} ${y(data[i].loanBal)}`;
-  }
-  fillPath += ' Z';
-  html += `<path d="${fillPath}" fill="var(--green)" opacity="0.12"/>`;
-
-  // Property value line
-  let pvPath = `M ${x(1)} ${y(data[0].propValue)}`;
-  data.forEach(d => { pvPath += ` L ${x(d.yr)} ${y(d.propValue)}`; });
-  html += `<path d="${pvPath}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
-
-  // Loan balance line
-  let lbPath = `M ${x(1)} ${y(data[0].loanBal)}`;
-  data.forEach(d => { lbPath += ` L ${x(d.yr)} ${y(d.loanBal)}`; });
-  html += `<path d="${lbPath}" fill="none" stroke="var(--amber)" stroke-width="2"/>`;
-
-  // Equity line
-  let eqPath = `M ${x(1)} ${y(data[0].equity)}`;
-  data.forEach(d => { eqPath += ` L ${x(d.yr)} ${y(d.equity)}`; });
-  html += `<path d="${eqPath}" fill="none" stroke="var(--green)" stroke-width="2" stroke-dasharray="5,3"/>`;
-
-  // Legend
-  html += `<rect x="${pad.l+8}" y="${pad.t+2}" width="10" height="3" fill="var(--accent)" rx="1"/>`;
-  html += `<text x="${pad.l+22}" y="${pad.t+5}" font-family="DM Sans,sans-serif" font-size="7" fill="var(--text3)">Value</text>`;
-  html += `<rect x="${pad.l+52}" y="${pad.t+2}" width="10" height="3" fill="var(--amber)" rx="1"/>`;
-  html += `<text x="${pad.l+66}" y="${pad.t+5}" font-family="DM Sans,sans-serif" font-size="7" fill="var(--text3)">Loan</text>`;
-  html += `<rect x="${pad.l+92}" y="${pad.t+2}" width="10" height="3" fill="var(--green)" rx="1"/>`;
-  html += `<text x="${pad.l+106}" y="${pad.t+5}" font-family="DM Sans,sans-serif" font-size="7" fill="var(--text3)">Equity</text>`;
-
-  svg.innerHTML = html;
 }
 
 /* ─── Startup ─── */
