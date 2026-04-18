@@ -293,7 +293,9 @@ Green = within market range, red = below market (likely under-comping), amber = 
 
 ## Version History
 
-**v5.0** (Current) — Comprehensive help system with plain-English walkthroughs for every section. Bedroom-type dropdowns with auto-filled defaults from market ranges. Visual range indicators per unit.
+**v6.1** (Current) — Statewide MN market intelligence: 17 submarkets with 2026 rent data. Zip-based auto-detect with manual override dropdown. Nearest-zip fallback for unknown areas. Verified vs. interpolated rent flags on chips and range bars. Market banner showing active market + confidence signal. Deal records now store selected market for comparison.
+
+**v5.0** — Comprehensive help system with plain-English walkthroughs for every section. Bedroom-type dropdowns with auto-filled defaults from market ranges. Visual range indicators per unit.
 
 **v4.0** — Rapid Screen mode added. Saved defaults via localStorage. New Deal button. Toast notifications. RentCast API integration.
 
