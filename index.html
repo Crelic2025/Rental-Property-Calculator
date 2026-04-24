@@ -2057,6 +2057,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
       <div class="input-wrap" data-pre="$"><span class="pre">$</span>
         <input type="number" id="purchasePrice" value="450000" oninput="calc()">
       </div>
+      <a id="redfin-comp-link" href="#" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue);margin-top:4px;display:inline-block;">&#x1F50D; Sales comps (Redfin)</a>
     </div>
     <div class="field">
       <label class="field-label">Immediate Repair Budget</label>
@@ -2065,6 +2066,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
         <input type="number" id="repairCost" value="5000" oninput="calc()">
       </div>
     </div>
+    <div id="flood-badge" style="display:none;font-size:11px;padding:4px 8px;border-radius:4px;margin-top:4px;"></div>
   </div>
 </div>
 
@@ -2367,6 +2369,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
     <span>BE-rent <b id="s-be">—</b></span>
   </div>
   <div class="glance-verdict" id="glance-verdict">—</div>
+  <div id="glance-zori" style="display:none;font-size:11px;color:var(--text3);padding:4px 0 0;text-align:center;"></div>
 </div>
 
 <!-- v6.1 results tiles replaced by Quick Glance in v7.0 -->
@@ -2672,6 +2675,118 @@ async function geocodeCensus(address) {
     tract: tracts && tracts[0] ? tracts[0].TRACT : '',
     matchedAddress: match.matchedAddress
   };
+}
+
+/* ─── Geo state (populated by fetchAndAnalyze) ─── */
+let _geoLat = null, _geoLng = null;
+
+/* ─── P2-1: Redfin comp link ─── */
+function redfinCompLink() {
+  const zip = ($('zipCode') && $('zipCode').value.trim()) || '00000';
+  return 'https://www.redfin.com/zipcode/' + zip + '/filter/property-type=multifamily,include=sold-3mo,radius=0.5';
+}
+function updateRedfinLink() {
+  const a = $('redfin-comp-link');
+  if (a) a.href = redfinCompLink();
+}
+
+/* ─── P2-2: ZORI rent-growth (localStorage cache, 30-day TTL) ─── */
+function parseCsvRow(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuote = !inQuote; }
+    else if (ch === ',' && !inQuote) { result.push(cur); cur = ''; }
+    else { cur += ch; }
+  }
+  result.push(cur);
+  return result;
+}
+
+async function fetchZoriData() {
+  const CACHE_KEY = 'rpc-zori-cache';
+  const TTL = 30 * 24 * 60 * 60 * 1000;
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) {
+    try {
+      const obj = JSON.parse(cached);
+      if (Date.now() - obj.ts < TTL) return obj.data;
+    } catch(e) {}
+  }
+  const r = await fetch('https://files.zillowstatic.com/research/public_csvs/zori/Zip_zori_uc_sfrcondomfr_sm_month.csv');
+  const text = await r.text();
+  const lines = text.trim().split('\n');
+  const data = {};
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvRow(lines[i]);
+    const zip = cols[2] ? cols[2].replace(/"/g, '').trim() : '';
+    if (zip.length === 5 && /^\d{5}$/.test(zip)) {
+      const vals = cols.slice(Math.max(9, cols.length - 13)).map(Number).filter(function(v) { return !isNaN(v) && v > 0; });
+      if (vals.length >= 2) data[zip] = vals;
+    }
+  }
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: data })); } catch(e) {}
+  return data;
+}
+
+function updateZoriChip(zip) {
+  const el = $('glance-zori');
+  if (!el || !zip || zip.length !== 5) return;
+  const cached = localStorage.getItem('rpc-zori-cache');
+  if (!cached) { el.style.display = 'none'; return; }
+  try {
+    const obj = JSON.parse(cached);
+    const vals = obj.data && obj.data[zip];
+    if (!vals || vals.length < 2) { el.style.display = 'none'; return; }
+    const latest = vals[vals.length - 1];
+    const yearAgo = vals[Math.max(0, vals.length - 13)];
+    if (!yearAgo) { el.style.display = 'none'; return; }
+    const growth = ((latest - yearAgo) / yearAgo * 100).toFixed(1);
+    el.textContent = 'Rents in ' + zip + ' grew ' + growth + '% in last 12mo (ZORI)';
+    el.style.display = '';
+  } catch(e) {
+    el.style.display = 'none';
+  }
+}
+
+/* ─── P2-3: FEMA flood zone flag ─── */
+async function fetchFemaData(lat, lng) {
+  const delta = 0.01;
+  const url = 'https://msc.fema.gov/arcgis/rest/services/NFHL/NFHL_Public_View/MapServer/identify'
+    + '?geometry=' + lng + ',' + lat
+    + '&geometryType=esriGeometryPoint'
+    + '&inSR=4326'
+    + '&layers=all'
+    + '&tolerance=1'
+    + '&mapExtent=' + (lng - delta) + ',' + (lat - delta) + ',' + (lng + delta) + ',' + (lat + delta)
+    + '&imageDisplay=800,600,96'
+    + '&returnGeometry=false'
+    + '&f=json';
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!j.results || !j.results.length) return null;
+  const flood = j.results.find(function(res) { return res.attributes && res.attributes.FLD_ZONE; });
+  return flood ? flood.attributes.FLD_ZONE : null;
+}
+
+function updateFloodBadge(zone) {
+  const el = $('flood-badge');
+  if (!el) return;
+  if (!zone) { el.style.display = 'none'; return; }
+  const sfha = /^[AV]/.test(zone);
+  el.style.display = '';
+  if (sfha) {
+    el.textContent = '\u26A0 Flood Zone ' + zone + ' \u2014 Flood insurance likely required';
+    el.style.background = '#fff0f0';
+    el.style.color = 'var(--red)';
+    el.style.border = '1px solid var(--red)';
+  } else {
+    el.textContent = '\u2713 Flood Zone ' + zone + ' \u2014 Low/moderate risk';
+    el.style.background = 'var(--surface2)';
+    el.style.color = 'var(--text3)';
+    el.style.border = '1px solid var(--border)';
+  }
 }
 
 /* ─── Utilities ─── */
@@ -4327,6 +4442,18 @@ async function fetchAndAnalyze() {
     }
 
     calc();
+
+    // Store geo for FEMA + Redfin
+    _geoLat = geo.lat;
+    _geoLng = geo.lng;
+    updateRedfinLink();
+    if (geo.zip) updateZoriChip(geo.zip);
+
+    // FEMA flood zone — async, non-blocking
+    fetchFemaData(geo.lat, geo.lng).then(function(zone) {
+      updateFloodBadge(zone);
+    }).catch(function() {});
+
     toast('Pre-filled from Census + RentCast. Verify highlighted fields.');
 
   } catch(e) {
@@ -4491,15 +4618,24 @@ calc();
 rapidCalc();
 if (hadDefaults) toast('Your saved defaults loaded');
 
-// Zip code listener for comp links
+// Zip code listener for comp links + Redfin + ZORI
 document.addEventListener('DOMContentLoaded', () => {
   const zipEl = $('zipCode');
   if (zipEl) {
     zipEl.addEventListener('input', () => {
       const n = parseInt($('propType').value);
       for (let i = 0; i < n; i++) updateCompLinks(i);
+      updateRedfinLink();
+      const zip = zipEl.value.trim();
+      if (zip.length === 5) updateZoriChip(zip);
     });
   }
+  updateRedfinLink();
+  // Fetch ZORI once on load (30-day cache)
+  fetchZoriData().then(function() {
+    const zip = ($('zipCode') && $('zipCode').value.trim()) || '';
+    if (zip.length === 5) updateZoriChip(zip);
+  }).catch(function() {});
 });</script>
 </body>
 </html>
