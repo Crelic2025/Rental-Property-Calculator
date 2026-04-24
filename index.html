@@ -1709,6 +1709,12 @@ select {
   a { color: #000; text-decoration: none; }
 }
 .print-header { display: none; }
+
+/* ── Auto-filled field highlight (Fetch & Analyze) ── */
+input[data-autofilled="true"], select[data-autofilled="true"] {
+  border-color: var(--accent) !important;
+  background: var(--accent-bg) !important;
+}
 </style>
 </head>
 <body>
@@ -1760,6 +1766,15 @@ select {
           <button class="tool-btn primary" onclick="saveApiKey()" style="white-space:nowrap;">Save Key</button>
         </div>
         <span class="field-hint" id="apiStatus" style="margin-top:6px;">No key saved</span>
+      </div>
+      <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <label class="field-label">Cloudflare Worker Proxy URL</label>
+        <span class="field-hint">Required for &#x26A1; Fetch &amp; Analyze — deploy <code>worker.js</code> to Cloudflare first</span>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="proxyUrl" placeholder="https://yourname.workers.dev" style="flex:1;padding:10px 12px;font-family:var(--mono);font-size:13px;">
+          <button class="tool-btn primary" onclick="saveProxyUrl()" style="white-space:nowrap;">Save URL</button>
+        </div>
+        <span class="field-hint" id="proxyStatus" style="margin-top:6px;">Not set — Fetch &amp; Analyze will use Census geocoder only without this</span>
       </div>
     </div>
   </div>
@@ -2010,8 +2025,11 @@ select {
     </div>
     <div class="field">
       <label class="field-label">Address</label>
-      <span class="field-hint">For your records — also used to label saved analyses</span>
-      <input type="text" id="address" placeholder="e.g. 5200 Minnetonka Blvd">
+      <span class="field-hint">Full address auto-populates price, zip, rents, and insurance via Census + RentCast</span>
+      <div style="display:flex;gap:8px;align-items:stretch;">
+        <input type="text" id="address" placeholder="e.g. 1234 Elm St, Minneapolis, MN 55408" autocomplete="street-address" style="flex:1;">
+        <button id="btn-fetch" class="tool-btn primary" onclick="fetchAndAnalyze()" style="white-space:nowrap;padding:8px 14px;">&#x26A1; Fetch &amp; Analyze</button>
+      </div>
     </div>
     <div class="field">
       <label class="field-label">Listing URL <span style="font-weight:400;color:var(--text4);font-size:11px;">(optional)</span></label>
@@ -2628,6 +2646,34 @@ select {
 </div><!-- /fullMode -->
 </div><!-- /app -->
 <script>
+/* ─── Proxy config (Cloudflare Worker for RentCast + HUD FMR) ─── */
+// Updated by saveProxyUrl() when user saves a URL in API settings
+let PROXY = localStorage.getItem('rpc-proxy-url') || 'https://yourname-proxy.yourname.workers.dev';
+
+async function geocodeCensus(address) {
+  const url = 'https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress'
+    + '?address=' + encodeURIComponent(address)
+    + '&benchmark=Public_AR_Current'
+    + '&vintage=Current_Current'
+    + '&format=json';
+  const r = await fetch(url);
+  const j = await r.json();
+  const match = j.result && j.result.addressMatches && j.result.addressMatches[0];
+  if (!match) throw new Error('Address not found in Census database');
+  const counties = match.geographies && match.geographies['Counties'];
+  const tracts = match.geographies && match.geographies['Census Tracts'];
+  return {
+    lat: match.coordinates.y,
+    lng: match.coordinates.x,
+    zip: match.addressComponents.zip,
+    state: match.addressComponents.state,
+    county: counties && counties[0] && counties[0].BASENAME ? counties[0].BASENAME.toLowerCase() : '',
+    countyFips: counties && counties[0] ? counties[0].COUNTY : '',
+    tract: tracts && tracts[0] ? tracts[0].TRACT : '',
+    matchedAddress: match.matchedAddress
+  };
+}
+
 /* ─── Utilities ─── */
 const $ = id => document.getElementById(id);
 function fmt(n, dp=0) {
@@ -4162,6 +4208,166 @@ function useCompRent(unitIndex, rent) {
   }
 }
 
+/* ═══════════════════════════════════════
+   FETCH & ANALYZE — Census + RentCast (via Proxy) + HUD FMR
+   Census geocoder: free, no key, direct browser fetch
+   RentCast + HUD: routed via Cloudflare Worker proxy (worker.js)
+═══════════════════════════════════════ */
+
+async function fetchPropertyData(address) {
+  const geo = await geocodeCensus(address);
+
+  // Parallel fetch — geocode first (required for HUD FIPS), then all three APIs at once
+  const [rentcastProp, rentcastRent, hudFmr] = await Promise.all([
+    fetch(PROXY + '/rentcast/properties?address=' + encodeURIComponent(address))
+      .then(function(r) { return r.json(); }).catch(function() { return null; }),
+    fetch(PROXY + '/rentcast/avm/rent/long-term?address=' + encodeURIComponent(address) + '&propertyType=Multi-Family&bedrooms=2&bathrooms=1')
+      .then(function(r) { return r.json(); }).catch(function() { return null; }),
+    fetch(PROXY + '/hud/fmr/data/' + geo.state + geo.countyFips + '99999?year=2026')
+      .then(function(r) { return r.json(); }).catch(function() { return null; })
+  ]);
+
+  const prop = Array.isArray(rentcastProp) ? rentcastProp[0] : rentcastProp;
+  const basicdata = hudFmr && hudFmr.data && hudFmr.data.basicdata && hudFmr.data.basicdata[0];
+
+  return {
+    geo: geo,
+    purchasePrice: prop && prop.lastSalePrice ? prop.lastSalePrice : null,
+    yearBuilt: prop && prop.yearBuilt ? prop.yearBuilt : null,
+    squareFootage: prop && prop.squareFootage ? prop.squareFootage : null,
+    assessedValue: prop && prop.taxAssessments && prop.taxAssessments.value ? prop.taxAssessments.value : null,
+    estimatedRent: rentcastRent && rentcastRent.rent ? rentcastRent.rent : null,
+    rentLow: rentcastRent && rentcastRent.rentRangeLow ? rentcastRent.rentRangeLow : null,
+    rentHigh: rentcastRent && rentcastRent.rentRangeHigh ? rentcastRent.rentRangeHigh : null,
+    hudFmrFloor2br: basicdata && basicdata['Two-Bedroom'] ? basicdata['Two-Bedroom'] : null
+  };
+}
+
+function estimateMnInsurance(price, units) {
+  // Source: Steadily + Clovered MN median ~$1,469/yr; duplex $1,800-$2,800
+  const base = 1500;
+  const perUnit = 400;
+  const valueFactor = Math.max(1, price / 300000);
+  return Math.round((base + perUnit * units) * valueFactor);
+}
+
+function markAutofilled(id, source) {
+  const el = $(id);
+  if (!el) return;
+  el.setAttribute('data-autofilled', 'true');
+  el.title = 'Auto-filled from ' + source + ' \u2014 click to override';
+  el.addEventListener('input', function clearMark() {
+    el.removeAttribute('data-autofilled');
+    el.title = '';
+    el.removeEventListener('input', clearMark);
+  });
+}
+
+async function fetchAndAnalyze() {
+  const addr = $('address').value.trim();
+  if (!addr) {
+    toast('Enter an address first');
+    return;
+  }
+
+  const btn = $('btn-fetch');
+  if (btn) { btn.disabled = true; btn.textContent = 'Fetching...'; }
+
+  try {
+    toast('Geocoding address\u2026');
+    const data = await fetchPropertyData(addr);
+    const geo = data.geo;
+
+    // Zip
+    if (geo.zip) {
+      $('zipCode').value = geo.zip;
+      markAutofilled('zipCode', 'Census');
+    }
+
+    // County dropdown (if present)
+    const mnCountyEl = $('mnCounty');
+    if (mnCountyEl && geo.county) {
+      const normalized = geo.county.replace(' county', '').trim();
+      const match = [...mnCountyEl.options].find(function(o) { return o.value === normalized; });
+      if (match) {
+        mnCountyEl.value = normalized;
+        markAutofilled('mnCounty', 'Census');
+      }
+    }
+
+    // Purchase price from last sale record
+    if (data.purchasePrice) {
+      $('purchasePrice').value = data.purchasePrice;
+      markAutofilled('purchasePrice', 'RentCast');
+    }
+
+    // Rent: RentCast estimate floored by HUD FMR
+    const rentDefault = Math.max(data.estimatedRent || 0, data.hudFmrFloor2br || 0);
+    if (rentDefault > 0) {
+      const n = parseInt($('propType').value);
+      const src = (data.hudFmrFloor2br && rentDefault === data.hudFmrFloor2br) ? 'HUD FMR' : 'RentCast';
+      for (let i = 0; i < n; i++) {
+        const el = $('rent' + i);
+        if (el) {
+          el.value = rentDefault;
+          markAutofilled('rent' + i, src);
+          updateRange(i);
+        }
+      }
+    }
+
+    // MN insurance estimate (only pre-fills if field is empty)
+    const price = data.purchasePrice || getNum('purchasePrice');
+    if (price > 0) {
+      const insEl = $('annualIns');
+      if (insEl && !insEl.value) {
+        insEl.value = estimateMnInsurance(price, parseInt($('propType').value));
+        markAutofilled('annualIns', 'MN estimate');
+      }
+    }
+
+    calc();
+    toast('Pre-filled from Census + RentCast. Verify highlighted fields.');
+
+  } catch(e) {
+    console.error('fetchAndAnalyze:', e);
+    toast('Fetch error: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '\u26A1 Fetch \u0026 Analyze'; }
+  }
+}
+
+function saveProxyUrl() {
+  const input = $('proxyUrl');
+  const url = input ? input.value.trim() : '';
+  if (!url) {
+    toast('Enter a proxy URL first');
+    return;
+  }
+  localStorage.setItem('rpc-proxy-url', url);
+  PROXY = url;
+  loadProxyUrlStatus();
+  toast('Proxy URL saved');
+}
+
+function loadProxyUrlStatus() {
+  const url = localStorage.getItem('rpc-proxy-url');
+  const el = $('proxyUrl');
+  const status = $('proxyStatus');
+  if (url) {
+    if (el) el.value = url;
+    if (status) {
+      status.textContent = '\u2713 Proxy set \u2014 \u26A1 Fetch & Analyze is fully active';
+      status.style.color = 'var(--green)';
+    }
+  } else {
+    if (status) {
+      status.textContent = 'Not set \u2014 Fetch & Analyze uses Census geocoder only (no RentCast/HUD)';
+      status.style.color = '';
+    }
+  }
+}
+
 /* ═══ SVG CHART RENDERERS ═══ */
 function renderCFChart(data) {
   const svg = $('chartCF');
@@ -4279,6 +4485,7 @@ function renderEquityChart(data) {
 /* ─── Startup ─── */
 const hadDefaults = loadDefaults();
 loadApiKeyStatus();
+loadProxyUrlStatus();
 buildRentInputs();
 calc();
 rapidCalc();

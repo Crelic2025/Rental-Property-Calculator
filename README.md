@@ -270,6 +270,37 @@ Green = within market range, red = below market (likely under-comping), amber = 
 1. Tap **💾 Save My Defaults** — they persist across browser sessions
 1. For each new deal: tap **＋ New Deal**, enter address + price + rent, read the verdict
 
+### Optional: Cloudflare Worker Proxy Setup (for ⚡ Fetch & Analyze)
+
+`worker.js` in the repo root is a Cloudflare Worker that proxies RentCast and HUD FMR requests, hiding your API keys from the client-side HTML file.
+
+**Prerequisites:** [Node.js](https://nodejs.org) + `wrangler` CLI (`npm install -g wrangler`)
+
+**Deploy steps (TODO: fill in your account details):**
+
+```bash
+# 1. Authenticate
+npx wrangler login
+
+# 2. Deploy the worker (creates a workers.dev subdomain automatically)
+npx wrangler deploy worker.js --name rpc-proxy
+
+# 3. Store secrets (never hardcoded — set via CLI only)
+npx wrangler secret put RENTCAST_API_KEY   # paste key when prompted
+npx wrangler secret put HUD_API_TOKEN      # paste token when prompted
+
+# 4. Note your worker URL: https://rpc-proxy.<your-subdomain>.workers.dev
+```
+
+**After deploy:**
+1. In the calculator, tap **⚙ API Key**
+2. Paste your worker URL into **Cloudflare Worker Proxy URL** and tap **Save URL**
+3. The ⚡ **Fetch & Analyze** button is now fully active
+
+> Free tier: 100,000 requests/day — far more than needed for personal deal screening.
+
+-----
+
 ### Optional: RentCast API Setup
 
 1. Sign up at [rentcast.io](https://rentcast.io) (~$20/mo Starter plan = ~100 API calls)
