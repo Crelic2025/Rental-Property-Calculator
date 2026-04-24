@@ -1,35 +1,19 @@
 <!DOCTYPE html>
 <!--
-  RENTAL PROPERTY CALCULATOR v7.0
+  RENTAL PROPERTY CALCULATOR v5.1
   House Hack Edition — Minnesota
   All formulas verified against BiggerPockets Four Square Method
-
-  v6.1 changes (from v6.0):
-  - NEW: Statewide MN market database (17 submarkets, 2026 rent data)
-  - NEW: Zip-based auto-detect with manual override dropdown
-  - NEW: Nearest-zip fallback for unknown areas
-  - NEW: Verified vs. interpolated rent flags on chips and range bars
-  - NEW: Market banner showing active market + confidence signal
-  - NEW: Deal records store selected market for comparison
-
-  v6.0 foundation (unchanged):
-  - Deal Journal with triage workflow (localStorage)
-  - Triage buttons, listing URL, unit-mix chips
-  - Headline MAO delta, resume last session
-  - Sensitivity matrix, break-even rent, compare overlay
-  - MN county assessor lookup, MN Housing DPA toggle
-  - Print/PDF export
+  Features: Rapid Screen, Saved Defaults, RentCast API, Comp Links, MAO Solver
 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Rental Property Calculator v7</title>
+<title>Rental Property Calculator v5</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #f5f3ef;
-  --card-alt: #f9f7f3;
   --white: #ffffff;
   --card: #ffffff;
   --border: #e5e1db;
@@ -52,9 +36,6 @@
   --amber-border: #fde68a;
   --gold: #92702a;
   --gold-bg: #faf6ee;
-  --purple: #6d28d9;
-  --purple-bg: #f5f3ff;
-  --purple-border: #ddd6fe;
   --sans: 'DM Sans', -apple-system, sans-serif;
   --mono: 'DM Mono', monospace;
   --r: 12px;
@@ -112,41 +93,6 @@ body {
   margin: 0 auto;
 }
 
-/* ── Resume banner (v6.0) ── */
-.resume-banner {
-  background: var(--gold-bg);
-  border: 1px solid rgba(146,112,42,0.25);
-  border-radius: var(--r);
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-}
-.resume-banner-text { flex: 1; color: var(--text2); }
-.resume-banner-text strong { color: var(--text); }
-.resume-banner button {
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.resume-banner .resume-yes {
-  background: var(--gold);
-  color: white;
-  border-color: var(--gold);
-}
-.resume-banner .resume-no {
-  background: transparent;
-  color: var(--text2);
-  border-color: var(--border);
-}
-
 /* ── Verdict Banner ── */
 .verdict {
   border-radius: var(--r);
@@ -181,92 +127,6 @@ body {
 .verdict.warn .verdict-title { color: var(--amber); }
 .verdict.neutral .verdict-title { color: var(--text3); }
 .verdict-desc { font-size: 13px; color: var(--text2); line-height: 1.5; }
-
-/* ── Triage row (v6.0) ── */
-.triage-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.triage-btn {
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 10px 8px;
-  border-radius: var(--r-sm);
-  border: 1.5px solid var(--border2);
-  background: var(--white);
-  color: var(--text2);
-  cursor: pointer;
-  transition: all 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  line-height: 1.2;
-}
-.triage-btn:hover, .triage-btn:active { transform: translateY(-1px); box-shadow: var(--shadow); }
-.triage-btn .triage-emoji { font-size: 18px; }
-.triage-btn.active {
-  color: white;
-  border-color: transparent;
-}
-.triage-btn.dig.active { background: var(--green); }
-.triage-btn.maybe.active { background: var(--amber); }
-.triage-btn.pass-btn.active { background: var(--red); }
-.triage-btn.fav.active { background: var(--gold); }
-
-/* ── Headline MAO delta (v6.0) ── */
-.mao-headline {
-  border-radius: var(--r);
-  padding: 18px 20px;
-  margin-bottom: 12px;
-  border: 1.5px solid;
-  text-align: center;
-  transition: all 0.25s;
-}
-.mao-headline.pass { background: var(--green-bg); border-color: var(--green); }
-.mao-headline.fail { background: var(--red-bg); border-color: var(--red); }
-.mao-headline.neutral { background: var(--white); border-color: var(--border); }
-.mao-headline-delta {
-  font-family: var(--mono);
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -1px;
-  line-height: 1.1;
-  margin-bottom: 4px;
-}
-.mao-headline.pass .mao-headline-delta { color: var(--green); }
-.mao-headline.fail .mao-headline-delta { color: var(--red); }
-.mao-headline.neutral .mao-headline-delta { color: var(--text3); }
-.mao-headline-label {
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text2);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.mao-headline-sub {
-  font-size: 12px;
-  color: var(--text3);
-  margin-top: 6px;
-  font-family: var(--mono);
-}
-.mao-headline-binding {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 10px;
-  font-weight: 700;
-  font-family: var(--mono);
-  padding: 3px 8px;
-  border-radius: 10px;
-  background: var(--gold);
-  color: white;
-  letter-spacing: 0.3px;
-}
 
 /* ── Gate pills row ── */
 .gates {
@@ -359,22 +219,10 @@ body {
   border: 1px solid var(--accent-border);
 }
 .card-num.gold { background: var(--gold-bg); color: var(--gold); border-color: rgba(146,112,42,0.2); }
-.card-num.purple { background: var(--purple-bg); color: var(--purple); border-color: var(--purple-border); }
 
 .card-hd-text { flex: 1; }
-.card-title { font-size: 15px; font-weight: 600; line-height: 1.3; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-title { font-size: 15px; font-weight: 600; line-height: 1.3; }
 .card-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
-
-.card-count-badge {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  background: var(--accent);
-  color: white;
-  padding: 2px 7px;
-  border-radius: 10px;
-  letter-spacing: 0.3px;
-}
 
 .card-arrow {
   width: 20px; height: 20px;
@@ -577,7 +425,7 @@ body {
 }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-input[type="number"], input[type="text"], input[type="url"], select {
+input[type="number"], select {
   width: 100%;
   padding: 10px 12px;
   font-family: var(--mono);
@@ -591,7 +439,6 @@ input[type="number"], input[type="text"], input[type="url"], select {
   -moz-appearance: textfield;
   -webkit-appearance: none;
 }
-input[type="text"], input[type="url"] { font-family: var(--sans); }
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 input:focus, select:focus {
   outline: none;
@@ -619,236 +466,9 @@ select {
 .input-wrap .pre + input { padding-left: 24px; }
 .input-wrap .suf ~ input,
 .input-wrap input:has(~ .suf) { padding-right: 28px; }
+/* Safari fallback for :has */
 .input-wrap[data-suf] input { padding-right: 30px; }
 .input-wrap[data-pre] input { padding-left: 24px; }
-
-/* Input with button beside it (v6.0 — assessor link) */
-.input-with-btn {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px;
-  align-items: stretch;
-}
-.input-with-btn .side-btn {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 1.5px solid var(--accent-border);
-  border-radius: var(--r-sm);
-  padding: 0 12px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.15s;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  -webkit-tap-highlight-color: transparent;
-}
-.input-with-btn .side-btn:hover, .input-with-btn .side-btn:active {
-  background: var(--accent);
-  color: white;
-}
-
-/* Unit-mix chips (v6.0) */
-.unit-mix-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px;
-  background: var(--bg);
-  border: 1.5px solid var(--border2);
-  border-radius: var(--r-sm);
-  min-height: 44px;
-  align-items: center;
-}
-.unit-mix-chip {
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 16px;
-  background: var(--white);
-  border: 1.5px solid var(--border);
-  color: var(--text2);
-  cursor: pointer;
-  transition: all 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.unit-mix-chip:hover { border-color: var(--accent); }
-.unit-mix-chip.selected {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-.unit-mix-chip .chip-x {
-  font-size: 14px;
-  line-height: 1;
-  opacity: 0.7;
-  margin-left: 2px;
-}
-.unit-mix-queue {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  padding: 6px 10px;
-  background: var(--accent-bg);
-  border: 1px dashed var(--accent-border);
-  border-radius: var(--r-sm);
-  min-height: 36px;
-  align-items: center;
-  font-size: 11px;
-  color: var(--text3);
-}
-.unit-mix-queue-item {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 10px;
-  background: var(--white);
-  color: var(--accent);
-  border: 1px solid var(--accent-border);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.unit-mix-queue-item .remove {
-  cursor: pointer;
-  opacity: 0.6;
-  font-size: 13px;
-  line-height: 1;
-  margin-left: 2px;
-  -webkit-tap-highlight-color: transparent;
-}
-.unit-mix-queue-item .remove:hover { opacity: 1; }
-
-/* ── Market Selector (v6.1) ── */
-.market-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--r-sm);
-  border: 1px solid;
-  margin-top: 8px;
-  font-size: 12px;
-  -webkit-tap-highlight-color: transparent;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.market-banner:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
-.market-banner.verified { background: var(--green-bg); border-color: var(--green-border); color: var(--text2); }
-.market-banner.nearest { background: var(--amber-bg); border-color: var(--amber-border); color: var(--text2); }
-.market-banner.manual { background: var(--gold-bg); border-color: rgba(146,112,42,0.25); color: var(--text2); }
-.market-banner.unknown { background: var(--bg); border-color: var(--border); color: var(--text3); }
-.market-banner-ico { font-size: 14px; flex-shrink: 0; }
-.market-banner-text { flex: 1; min-width: 0; }
-.market-banner-text strong { color: var(--text); font-weight: 700; }
-.market-banner-text .market-conf {
-  font-family: var(--mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  opacity: 0.75;
-}
-.market-banner-arrow { font-size: 11px; opacity: 0.6; flex-shrink: 0; }
-
-.market-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 1002;
-  display: none;
-  align-items: flex-end;
-  justify-content: center;
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-}
-.market-overlay.show { display: flex; }
-.market-modal {
-  background: var(--white);
-  border-radius: 16px 16px 0 0;
-  max-width: 520px;
-  width: 100%;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 24px 20px 32px;
-  box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
-  animation: slideUp 0.25s ease;
-}
-.market-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
-}
-.market-option {
-  padding: 12px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--white);
-  cursor: pointer;
-  transition: all 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.market-option:hover, .market-option:active {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
-.market-option.selected {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
-}
-.market-option-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-}
-.market-option-desc {
-  font-size: 11px;
-  color: var(--text3);
-  font-family: var(--mono);
-}
-.market-option-rents {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text3);
-  flex-wrap: wrap;
-}
-.market-option-rents span { background: var(--bg); padding: 2px 6px; border-radius: 4px; }
-.market-option-rents .interp { opacity: 0.7; font-style: italic; }
-
-/* Chip labels that show interpolated vs verified */
-.unit-mix-chip .chip-flag {
-  font-size: 9px;
-  line-height: 1;
-  margin-left: 2px;
-  vertical-align: top;
-  color: var(--amber);
-}
-.unit-mix-chip.selected .chip-flag { color: rgba(255,255,255,0.8); }
-
-/* Range bar: interpolated marker */
-.range-bar .interp-mark {
-  font-size: 9px;
-  color: var(--amber);
-  margin-left: 2px;
-  font-family: var(--mono);
-  font-weight: 600;
-}
 
 /* ── Results sections ── */
 .result-section { margin-top: 16px; }
@@ -974,37 +594,6 @@ select {
 .mao-c-delta.pos { color: var(--green); }
 .mao-c-delta.neg { color: var(--red); }
 
-/* Break-even rent solver (v6.0) */
-.breakeven-row {
-  padding: 12px 20px;
-  border-top: 1px solid var(--border);
-  background: var(--purple-bg);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.breakeven-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--purple);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.breakeven-val {
-  font-family: var(--mono);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text);
-}
-.breakeven-sub {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text3);
-  margin-top: 3px;
-}
-
 /* ── Capital progress ── */
 .cap-buckets { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 12px; }
 .cap-b { text-align: center; }
@@ -1019,71 +608,310 @@ select {
 .cfi-lbl { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.3px; }
 .cfi-val { font-family: var(--mono); font-size: 14px; font-weight: 600; margin-top: 2px; }
 
-/* DPA checkbox styling (v6.0) */
-.dpa-toggle {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--green-bg);
-  border: 1px solid var(--green-border);
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .scenario-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: 1fr 1fr; }
+  .mao-constraints { grid-template-columns: 1fr 1fr; }
+  .mao-hero { flex-wrap: wrap; }
+  .cap-buckets { grid-template-columns: 1fr 1fr; }
+  .cap-footer { grid-template-columns: 1fr; }
+  .field-row { grid-template-columns: 1fr; }
 }
-.dpa-toggle input {
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-  cursor: pointer;
-  accent-color: var(--green);
+@media (max-width: 420px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .metrics-grid { grid-template-columns: 1fr; }
+  .mao-constraints { grid-template-columns: 1fr; }
 }
-.dpa-toggle-text { flex: 1; }
-.dpa-toggle-title { font-size: 13px; font-weight: 600; color: var(--green); margin-bottom: 2px; }
-.dpa-toggle-sub { font-size: 11px; color: var(--text2); line-height: 1.4; }
 
-/* ── Sensitivity Matrix (v6.0) ── */
-.sens-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.sens-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 11px;
+/* ── Mode Toggle ── */
+.mode-toggle {
+  display: flex;
+  background: var(--white);
+  border: 1.5px solid var(--border2);
+  border-radius: 10px;
+  padding: 3px;
+  margin: 0 auto 16px;
+  max-width: 320px;
 }
-.sens-table th {
-  padding: 8px 6px;
-  background: var(--bg);
+.mode-btn {
+  flex: 1;
+  font-family: var(--sans);
+  font-size: 13px;
   font-weight: 600;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
   color: var(--text3);
-  border: 1px solid var(--border);
-  text-align: center;
-  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
-.sens-table th.sens-corner {
+.mode-btn.active {
   background: var(--text);
   color: var(--white);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.tool-btn {
   font-family: var(--sans);
-  font-size: 10px;
-  letter-spacing: 0.3px;
-}
-.sens-table th.row-hdr {
-  background: var(--bg);
-  font-weight: 700;
-}
-.sens-table td {
-  padding: 8px 6px;
-  border: 1px solid var(--border);
-  text-align: center;
+  font-size: 12px;
   font-weight: 600;
-  font-size: 11px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border2);
+  background: var(--white);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tool-btn:hover, .tool-btn:active { background: var(--bg); }
+.tool-btn.primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.tool-btn.primary:hover, .tool-btn.primary:active {
+  background: #1d4ed8;
+}
+.tool-btn.green {
+  background: var(--green-bg);
+  color: var(--green);
+  border-color: var(--green-border);
+}
+
+/* ── Toast notification ── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--text);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  z-index: 999;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
   white-space: nowrap;
 }
-.sens-cell.pos { background: rgba(22,163,74,0.10); color: var(--green); }
-.sens-cell.neutral-good { background: rgba(22,163,74,0.04); color: var(--text2); }
-.sens-cell.marginal { background: rgba(217,119,6,0.10); color: var(--amber); }
-.sens-cell.neg { background: rgba(220,38,38,0.12); color: var(--red); font-weight: 700; }
-.sens-cell.base { outline: 2px solid var(--accent); outline-offset: -2px; }
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Rapid Screen ── */
+.rapid-screen {
+  display: none;
+}
+.rapid-screen.active {
+  display: block;
+}
+.full-analysis {
+  display: block;
+}
+.full-analysis.hidden {
+  display: none;
+}
+
+.rapid-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+}
+.rapid-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.rapid-inputs .full-width {
+  grid-column: 1 / -1;
+}
+.rapid-result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+.rapid-result {
+  background: var(--bg);
+  border-radius: var(--r-sm);
+  padding: 14px;
+  text-align: center;
+}
+.rr-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.rr-val { font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+.rr-sub { font-size: 10px; color: var(--text4); margin-top: 3px; }
+
+.rapid-expand-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1.5px solid var(--accent-border);
+  border-radius: var(--r-sm);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: all 0.15s;
+}
+.rapid-expand-btn:hover { background: var(--accent); color: white; }
+
+@media (max-width: 700px) {
+  .rapid-inputs { grid-template-columns: 1fr; }
+  .rapid-inputs .full-width { grid-column: 1; }
+  .rapid-result-grid { grid-template-columns: 1fr 1fr; }
+}
+/* ── Help System ── */
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1.5px solid var(--accent-border);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--sans);
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s;
+  line-height: 1;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.help-btn:hover, .help-btn:active {
+  background: var(--accent);
+  color: white;
+}
+
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.help-overlay.show { display: flex; }
+
+.help-modal {
+  background: var(--white);
+  border-radius: 16px 16px 0 0;
+  max-width: 520px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 24px 20px 32px;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.help-modal-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.help-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+.help-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: none;
+  font-size: 18px;
+  color: var(--text3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-body { font-size: 14px; color: var(--text2); line-height: 1.7; }
+.help-body h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 18px 0 6px;
+}
+.help-body h3:first-child { margin-top: 0; }
+.help-body p { margin-bottom: 10px; }
+
+.help-step {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.help-step:last-child { border-bottom: none; }
+.help-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.help-step-text { flex: 1; }
+.help-step-text strong { color: var(--text); }
+
+.help-example {
+  background: var(--bg);
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  margin: 10px 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text2);
+}
+.help-example .he-label { color: var(--text3); }
+.help-example .he-val { color: var(--text); font-weight: 600; }
+.help-example .he-result { color: var(--green); font-weight: 600; }
 
 /* ── Analysis Over Time Table ── */
 .aot-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
@@ -1154,581 +982,19 @@ select {
   width: 100%;
   height: auto;
 }
-
-/* ── Deal Journal (v6.0) ── */
-.journal-filters {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.journal-filter {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 14px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  color: var(--text3);
-  cursor: pointer;
-  transition: all 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.journal-filter.active {
-  background: var(--text);
-  color: white;
-  border-color: var(--text);
-}
-.journal-filter:hover { transform: translateY(-1px); }
-
-.journal-toolbar {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  align-items: center;
-}
-.journal-empty {
-  padding: 30px 20px;
-  text-align: center;
-  color: var(--text3);
-  font-size: 13px;
-  background: var(--bg);
-  border-radius: var(--r-sm);
-  border: 1px dashed var(--border);
-}
-
-.journal-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.journal-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  transition: all 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-}
-.journal-row:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); }
-.journal-row.selected {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
-}
-
-.journal-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  flex-shrink: 0;
-}
-.journal-dot.dig { background: var(--green); }
-.journal-dot.maybe { background: var(--amber); }
-.journal-dot.pass-dot { background: var(--red); }
-.journal-dot.fav { background: var(--gold); }
-.journal-dot.none { background: var(--border); }
-
-.journal-body { min-width: 0; }
-.journal-addr {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.journal-addr .url-ico {
-  font-size: 11px;
-  color: var(--accent);
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.journal-meta {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text3);
-  margin-top: 2px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.journal-meta .sep { color: var(--text4); }
-.journal-meta .delta-pos { color: var(--green); font-weight: 600; }
-.journal-meta .delta-neg { color: var(--red); font-weight: 600; }
-
-.journal-right {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-shrink: 0;
-}
-.journal-verdict-pill {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 700;
-  padding: 3px 7px;
-  border-radius: 10px;
-  letter-spacing: 0.3px;
-}
-.journal-verdict-pill.pass { background: var(--green-bg); color: var(--green); }
-.journal-verdict-pill.fail { background: var(--red-bg); color: var(--red); }
-.journal-verdict-pill.warn { background: var(--amber-bg); color: var(--amber); }
-
-.journal-del-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text3);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  -webkit-tap-highlight-color: transparent;
-}
-.journal-del-btn:hover { background: var(--red-bg); color: var(--red); border-color: var(--red-border); }
-
-/* ── Compare Overlay (v6.0) ── */
-.compare-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  z-index: 1001;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-.compare-overlay.show { display: flex; }
-.compare-modal {
-  background: var(--white);
-  border-radius: var(--r);
-  max-width: 900px;
-  width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.25);
-}
-.compare-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.compare-title { font-size: 16px; font-weight: 700; }
-.compare-body { overflow-y: auto; padding: 16px 20px 20px; }
-.compare-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.compare-table th, .compare-table td {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-.compare-table th:first-child { font-family: var(--sans); font-weight: 600; color: var(--text3); width: 140px; }
-.compare-table thead th {
-  background: var(--bg);
-  font-family: var(--sans);
-  font-size: 11px;
-  color: var(--text2);
-  font-weight: 700;
-  text-align: center;
-}
-.compare-table thead th:first-child {
-  font-size: 10px;
-  color: var(--text4);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-align: left;
-}
-.compare-table td {
-  font-family: var(--mono);
-  font-weight: 500;
-  text-align: center;
-}
-.compare-table tr:hover td:not(:first-child) { background: rgba(37,99,235,0.02); }
-.compare-best { background: rgba(22,163,74,0.08); color: var(--green); font-weight: 700; }
-.compare-worst { background: rgba(220,38,38,0.04); color: var(--red); }
-
-/* ── Responsive ── */
 @media (max-width: 700px) {
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .scenario-grid { grid-template-columns: 1fr; }
-  .metrics-grid { grid-template-columns: 1fr 1fr; }
-  .mao-constraints { grid-template-columns: 1fr 1fr; }
-  .mao-hero { flex-wrap: wrap; }
-  .cap-buckets { grid-template-columns: 1fr 1fr; }
-  .cap-footer { grid-template-columns: 1fr; }
-  .field-row { grid-template-columns: 1fr; }
   .charts-grid { grid-template-columns: 1fr; }
-  .triage-row { grid-template-columns: repeat(2, 1fr); }
-  .mao-headline-delta { font-size: 26px; }
-  .journal-row { grid-template-columns: auto 1fr auto; gap: 8px; }
-  .journal-verdict-pill { display: none; }
 }
-@media (max-width: 420px) {
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .metrics-grid { grid-template-columns: 1fr; }
-  .mao-constraints { grid-template-columns: 1fr; }
-}
-
-/* ── Mode Toggle ── */
-.mode-toggle {
-  display: flex;
-  background: var(--white);
-  border: 1.5px solid var(--border2);
-  border-radius: 10px;
-  padding: 3px;
-  margin: 0 auto 16px;
-  max-width: 320px;
-}
-.mode-btn {
-  flex: 1;
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text3);
-  cursor: pointer;
-  transition: all 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-.mode-btn.active {
-  background: var(--text);
-  color: var(--white);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
-/* ── Toolbar ── */
-.toolbar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-.tool-btn {
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1.5px solid var(--border2);
-  background: var(--white);
-  color: var(--text2);
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  -webkit-tap-highlight-color: transparent;
-}
-.tool-btn:hover, .tool-btn:active { background: var(--bg); }
-.tool-btn.primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-.tool-btn.primary:hover, .tool-btn.primary:active { background: #1d4ed8; }
-.tool-btn.green {
-  background: var(--green-bg);
-  color: var(--green);
-  border-color: var(--green-border);
-}
-.tool-btn.print {
-  background: var(--purple-bg);
-  color: var(--purple);
-  border-color: var(--purple-border);
-}
-
-/* ── Toast notification ── */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  background: var(--text);
-  color: white;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 10px 20px;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  z-index: 999;
-  opacity: 0;
-  transition: all 0.3s ease;
-  pointer-events: none;
-  white-space: nowrap;
-}
-.toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-/* ── Rapid Screen ── */
-.rapid-screen { display: none; }
-.rapid-screen.active { display: block; }
-.full-analysis { display: block; }
-.full-analysis.hidden { display: none; }
-
-.rapid-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 20px;
-  box-shadow: var(--shadow);
-  margin-bottom: 12px;
-}
-.rapid-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.rapid-inputs .full-width { grid-column: 1 / -1; }
-.rapid-result-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 16px;
-}
-.rapid-result {
-  background: var(--bg);
-  border-radius: var(--r-sm);
-  padding: 14px;
-  text-align: center;
-}
-.rr-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-.rr-val { font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
-.rr-sub { font-size: 10px; color: var(--text4); margin-top: 3px; }
-
-.rapid-expand-btn {
-  width: 100%;
-  padding: 12px;
-  background: var(--accent-bg);
-  color: var(--accent);
-  border: 1.5px solid var(--accent-border);
-  border-radius: var(--r-sm);
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 12px;
-  transition: all 0.15s;
-}
-.rapid-expand-btn:hover { background: var(--accent); color: white; }
-
-@media (max-width: 700px) {
-  .rapid-inputs { grid-template-columns: 1fr; }
-  .rapid-inputs .full-width { grid-column: 1; }
-  .rapid-result-grid { grid-template-columns: 1fr 1fr; }
-}
-
-/* ── Help System ── */
-.help-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--accent-bg);
-  color: var(--accent);
-  border: 1.5px solid var(--accent-border);
-  font-size: 11px;
-  font-weight: 700;
-  font-family: var(--sans);
-  cursor: pointer;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  transition: all 0.15s;
-  line-height: 1;
-  vertical-align: middle;
-  margin-left: 4px;
-}
-.help-btn:hover, .help-btn:active { background: var(--accent); color: white; }
-
-.help-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 1000;
-  display: none;
-  align-items: flex-end;
-  justify-content: center;
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-}
-.help-overlay.show { display: flex; }
-
-.help-modal {
-  background: var(--white);
-  border-radius: 16px 16px 0 0;
-  max-width: 520px;
-  width: 100%;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 24px 20px 32px;
-  box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
-  animation: slideUp 0.25s ease;
-}
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.help-modal-hd {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.help-modal-title { font-size: 17px; font-weight: 700; }
-.help-modal-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--bg);
-  border: none;
-  font-size: 18px;
-  color: var(--text3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.help-body { font-size: 14px; color: var(--text2); line-height: 1.7; }
-.help-body h3 { font-size: 14px; font-weight: 700; color: var(--text); margin: 18px 0 6px; }
-.help-body h3:first-child { margin-top: 0; }
-.help-body p { margin-bottom: 10px; }
-
-.help-step { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.help-step:last-child { border-bottom: none; }
-.help-step-num {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--accent); color: white;
-  font-family: var(--mono); font-size: 13px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-top: 2px;
-}
-.help-step-text { flex: 1; }
-.help-step-text strong { color: var(--text); }
-
-.help-example {
-  background: var(--bg);
-  border-radius: var(--r-sm);
-  padding: 12px 14px;
-  margin: 10px 0;
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--text2);
-}
-.help-example .he-label { color: var(--text3); }
-.help-example .he-val { color: var(--text); font-weight: 600; }
-.help-example .he-result { color: var(--green); font-weight: 600; }
-
-/* ── Quick Glance Card (v7.0) ── */
-.glance { background: var(--card); border-radius: var(--r); padding: 18px; border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 12px; }
-.glance-head { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; font-size: 12px; color: var(--text3); margin-bottom: 14px; font-family: var(--mono); }
-.glance-head .addr { color: var(--text); font-weight: 600; font-family: var(--sans); }
-.glance-primary { text-align: center; padding: 14px 0 18px; border-bottom: 1px solid var(--border); }
-.glance-primary .big { font-size: 48px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--mono); line-height: 1.1; }
-.glance-primary .sub { font-size: 13px; color: var(--text3); margin-top: 6px; }
-.glance-primary label, .glance-row label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); display: block; margin-bottom: 4px; }
-.glance-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.glance-row .cell { text-align: center; background: var(--bg); border-radius: var(--r-sm); padding: 10px 8px; }
-.glance-row .med { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--mono); }
-.glance-mao { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
-.glance-mao label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); margin: 0; }
-.glance-mao-val { font-family: var(--mono); font-weight: 600; font-size: 16px; }
-.glance-sanity { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; padding: 10px 0; color: var(--text3); border-bottom: 1px solid var(--border); }
-.glance-sanity b { color: var(--text); font-family: var(--mono); }
-.glance-verdict { padding-top: 12px; font-weight: 600; line-height: 1.5; font-size: 15px; }
-@media (max-width: 600px) {
-  .glance-primary .big { font-size: 36px; }
-  .glance-row { grid-template-columns: 1fr; gap: 4px; }
-  .glance-row .cell { display: flex; justify-content: space-between; align-items: center; text-align: left; padding: 8px 10px; }
-  .glance-row .med { font-size: 18px; }
-  .glance-row label { margin-bottom: 0; }
-  .glance-sanity { gap: 6px 12px; font-size: 11px; }
-}
-
-/* ── Print Stylesheet (v6.0) ── */
-@media print {
-  body { background: white; font-size: 11pt; }
-  .app { max-width: 100%; padding: 0; }
-  .header { padding: 0 0 12pt; margin: 0 0 12pt; border-bottom: 1pt solid #999; }
-  .header-badge, .resume-banner, .mode-toggle, .toolbar,
-  .help-btn, .help-overlay, .compare-overlay, .toast,
-  .triage-row, .rapid-expand-btn, .card-arrow,
-  #apiSettings, #rapidCompCard, #dealJournalCard,
-  .journal-del-btn, .comp-links, .comp-row,
-  .unit-mix-queue, .unit-mix-wrap {
-    display: none !important;
-  }
-  .card { break-inside: avoid; page-break-inside: avoid; box-shadow: none; border: 1pt solid #ccc; margin-bottom: 8pt; }
-  .card .card-body { display: block !important; padding: 10pt 14pt; }
-  .card-hd { cursor: default; border-bottom: 1pt solid #eee; }
-  .mao-card, #card-mao { break-before: page; page-break-before: always; }
-  .verdict { box-shadow: none; }
-  .stats-grid, .metrics-grid, .scenario-grid, .mao-constraints, .cap-buckets {
-    page-break-inside: avoid; break-inside: avoid;
-  }
-  .rapid-screen { display: none !important; }
-  .full-analysis { display: block !important; }
-  .full-analysis.hidden { display: block !important; }
-  /* Print header */
-  .print-header {
-    display: block !important;
-    font-family: var(--sans);
-    font-size: 9pt;
-    color: #666;
-    text-align: right;
-    margin-bottom: 8pt;
-    padding-bottom: 4pt;
-    border-bottom: 0.5pt solid #ccc;
-  }
-  .print-header strong { color: #000; font-size: 11pt; }
-  a { color: #000; text-decoration: none; }
-}
-.print-header { display: none; }
 </style>
 </head>
 <body>
 <div class="app">
 
-<!-- ═══ PRINT HEADER (hidden on screen) ═══ -->
-<div class="print-header" id="printHeader"></div>
-
 <!-- ═══ HEADER ═══ -->
 <div class="header">
-  <div class="header-badge">v7.0 · House Hack Edition · Minnesota</div>
+  <div class="header-badge">v5.1 · House Hack Edition · Minnesota</div>
   <h1>Rental Property Calculator</h1>
-  <p>Screen fast. Analyze deep. Remember every deal.</p>
-</div>
-
-<!-- ═══ RESUME BANNER (v6.0) ═══ -->
-<div class="resume-banner" id="resumeBanner" style="display:none;">
-  <div class="resume-banner-text" id="resumeBannerText"></div>
-  <button class="resume-yes" onclick="resumeLastSession()">Resume</button>
-  <button class="resume-no" onclick="dismissResume()">Dismiss</button>
+  <p>Plug in the numbers, see if the deal works.</p>
 </div>
 
 <!-- ═══ MODE TOGGLE ═══ -->
@@ -1741,8 +1007,7 @@ select {
 <div class="toolbar">
   <button class="tool-btn green" onclick="newDeal()">＋ New Deal</button>
   <button class="tool-btn" onclick="saveDefaults()">💾 Save My Defaults</button>
-  <button class="tool-btn" onclick="resetDefaults()">↺ Reset</button>
-  <button class="tool-btn print" onclick="printAnalysis()">📄 Print / PDF</button>
+  <button class="tool-btn" onclick="resetDefaults()">↺ Reset to Defaults</button>
   <button class="tool-btn" onclick="$('apiSettings').style.display=$('apiSettings').style.display==='none'?'block':'none'">⚙ API Key</button>
 </div>
 
@@ -1756,7 +1021,7 @@ select {
       <div class="field">
         <label class="field-label">RentCast API Key</label>
         <div style="display:flex;gap:8px;">
-          <input type="password" id="rentcastKey" placeholder="Paste your API key here" style="flex:1;padding:10px 12px;font-family:var(--mono);font-size:13px;">
+          <input type="password" id="rentcastKey" placeholder="Paste your API key here" style="flex:1;padding:10px 12px;font-family:var(--mono);font-size:13px;color:var(--text);background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r-sm);">
           <button class="tool-btn primary" onclick="saveApiKey()" style="white-space:nowrap;">Save Key</button>
         </div>
         <span class="field-hint" id="apiStatus" style="margin-top:6px;">No key saved</span>
@@ -1779,43 +1044,6 @@ select {
   </div>
 </div>
 
-<!-- ═══ COMPARE OVERLAY (v6.0) ═══ -->
-<div class="compare-overlay" id="compareOverlay" onclick="if(event.target===this)closeCompare()">
-  <div class="compare-modal">
-    <div class="compare-header">
-      <div class="compare-title">Compare Deals</div>
-      <button class="help-modal-close" onclick="closeCompare()">✕</button>
-    </div>
-    <div class="compare-body" id="compareBody"></div>
-  </div>
-</div>
-
-<!-- ═══ MARKET SELECTOR OVERLAY (v6.1) ═══ -->
-<div class="market-overlay" id="marketOverlay" onclick="if(event.target===this)closeMarketPicker()">
-  <div class="market-modal">
-    <div class="help-modal-hd">
-      <div class="help-modal-title">Choose Market</div>
-      <button class="help-modal-close" onclick="closeMarketPicker()">✕</button>
-    </div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">
-      <span id="marketPickerContext"></span>
-    </div>
-    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">
-      <span style="color:var(--green);">●</span> verified 2026 data &nbsp;·&nbsp;
-      <span style="color:var(--amber);">✦</span> interpolated (limited data)
-    </div>
-    <div class="market-list" id="marketList"></div>
-  </div>
-</div>
-
-<!-- ═══ HEADLINE MAO DELTA (v6.0 — above verdict in rapid mode) ═══ -->
-<div class="mao-headline neutral" id="maoHeadline" style="display:none;">
-  <div class="mao-headline-label" id="maoHeadlineLabel">Over / Under Your MAO</div>
-  <div class="mao-headline-delta" id="maoHeadlineDelta">—</div>
-  <div class="mao-headline-sub" id="maoHeadlineSub">Enter price and rent to calculate</div>
-  <div id="maoHeadlineBindingWrap"></div>
-</div>
-
 <!-- ═══ VERDICT (shared by both modes) ═══ -->
 <div class="verdict neutral" id="verdict">
   <div class="verdict-icon">?</div>
@@ -1825,77 +1053,23 @@ select {
   </div>
 </div>
 
-<!-- ═══ TRIAGE BUTTONS (v6.0) ═══ -->
-<div class="triage-row" id="triageRow" style="display:none;">
-  <button class="triage-btn dig" onclick="triage('dig')" data-key="dig">
-    <span class="triage-emoji">🟢</span>
-    <span>Dig Deeper</span>
-  </button>
-  <button class="triage-btn maybe" onclick="triage('maybe')" data-key="maybe">
-    <span class="triage-emoji">🟡</span>
-    <span>Maybe</span>
-  </button>
-  <button class="triage-btn pass-btn" onclick="triage('pass')" data-key="pass">
-    <span class="triage-emoji">🔴</span>
-    <span>Pass</span>
-  </button>
-  <button class="triage-btn fav" onclick="triage('fav')" data-key="fav">
-    <span class="triage-emoji">⭐</span>
-    <span>Favorite</span>
-  </button>
-</div>
-
 <!-- ═══ GATE PILLS (shared) ═══ -->
 <div class="gates" id="gatePills"></div>
 
 <!-- ═══════════════════════════════════
-     DEAL JOURNAL (v6.0)
-═══════════════════════════════════ -->
-<div class="card" id="dealJournalCard">
-  <div class="card-hd" onclick="toggle('dealJournalCard')">
-    <div class="card-num purple">📓</div>
-    <div class="card-hd-text">
-      <div class="card-title">Deal Journal <span class="card-count-badge" id="journalCount">0</span></div>
-      <div class="card-sub" id="journalSub">Saved screenings · tap a row to reload</div>
-    </div>
-    <svg class="card-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
-  </div>
-  <div class="card-body">
-    <div class="journal-filters" id="journalFilters">
-      <button class="journal-filter active" data-filter="all" onclick="setJournalFilter('all')">All</button>
-      <button class="journal-filter" data-filter="dig" onclick="setJournalFilter('dig')">🟢 Dig</button>
-      <button class="journal-filter" data-filter="maybe" onclick="setJournalFilter('maybe')">🟡 Maybe</button>
-      <button class="journal-filter" data-filter="pass" onclick="setJournalFilter('pass')">🔴 Pass</button>
-      <button class="journal-filter" data-filter="fav" onclick="setJournalFilter('fav')">⭐ Favorites</button>
-    </div>
-    <div class="journal-toolbar">
-      <button class="tool-btn" onclick="openCompare()" id="compareBtn" disabled style="opacity:0.5;">Compare Selected</button>
-      <button class="tool-btn" onclick="clearJournalSelection()" id="clearSelBtn" style="display:none;">Clear Selection</button>
-      <span style="flex:1;"></span>
-      <button class="tool-btn" onclick="exportJournalJSON()">Export JSON</button>
-      <button class="tool-btn" onclick="confirmWipeJournal()" style="color:var(--red);border-color:var(--red-border);">Wipe Journal</button>
-    </div>
-    <div id="journalList"></div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════
      RAPID SCREEN MODE
+     3 inputs → instant verdict + MAO
 ═══════════════════════════════════ -->
 <div class="rapid-screen active" id="rapidMode">
 
   <div class="rapid-card">
     <div class="explain" style="margin-bottom:14px;">
-      <strong>Rapid Screen:</strong> 2-minute glance. Enter the address, price, unit mix. Everything else uses your saved defaults. If it passes, triage it and tap "Full Analysis" for detail. If it fails, tap Pass and move on.
+      <strong>Rapid Screen:</strong> Enter just the price and total rent. Everything else uses your saved defaults. If it passes, tap "Full Analysis" to dig deeper. If it fails, move to the next deal.
     </div>
     <div class="rapid-inputs">
       <div class="full-width field">
         <label class="field-label">Address</label>
-        <input type="text" id="r-address" placeholder="e.g. 5200 Minnetonka Blvd" oninput="onRapidInputChange()">
-      </div>
-      <div class="full-width field">
-        <label class="field-label">Listing URL <span style="font-weight:400;color:var(--text4);font-size:11px;">(optional)</span></label>
-        <input type="url" id="r-url" placeholder="Paste Zillow / Realtor / MLS link" oninput="onUrlChange()">
+        <input type="text" id="r-address" placeholder="e.g. 5200 Minnetonka Blvd" style="width:100%;padding:10px 12px;font-family:var(--sans);font-size:15px;color:var(--text);background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r-sm);">
       </div>
       <div class="field">
         <label class="field-label">Asking Price</label>
@@ -1904,53 +1078,32 @@ select {
         </div>
       </div>
       <div class="field">
-        <label class="field-label">Property Type</label>
-        <select id="r-propType" onchange="onRapidPropTypeChange()">
-          <option value="2">Duplex</option>
-          <option value="3">Triplex</option>
-          <option value="4" selected>Fourplex</option>
-        </select>
-      </div>
-      <div class="full-width field">
-        <label class="field-label">Unit Mix <button class="help-btn" onclick="showHelp('unitmix')">?</button></label>
-        <span class="field-hint">Tap bedroom types to build your mix — auto-fills total rent from market medians</span>
-        <div class="market-banner unknown" id="marketBanner" onclick="openMarketPicker()">
-          <span class="market-banner-ico">📍</span>
-          <span class="market-banner-text">
-            <strong id="marketBannerName">Select market</strong>
-            <span class="market-conf" id="marketBannerConf"></span>
-          </span>
-          <span class="market-banner-arrow">▾</span>
-        </div>
-        <div class="unit-mix-queue" id="unitMixQueue"></div>
-        <div class="unit-mix-wrap" style="margin-top:6px;">
-          <span style="font-size:11px;color:var(--text3);margin-right:4px;">Add:</span>
-          <button class="unit-mix-chip" onclick="addUnitToMix('0')">Studio <span id="chipPrice0" style="font-size:9px;color:var(--text4);">$1,200</span><span class="chip-flag" id="chipFlag0"></span></button>
-          <button class="unit-mix-chip" onclick="addUnitToMix('1')">1 BR <span id="chipPrice1" style="font-size:9px;color:var(--text4);">$1,475</span><span class="chip-flag" id="chipFlag1"></span></button>
-          <button class="unit-mix-chip" onclick="addUnitToMix('2')">2 BR <span id="chipPrice2" style="font-size:9px;color:var(--text4);">$1,705</span><span class="chip-flag" id="chipFlag2"></span></button>
-          <button class="unit-mix-chip" onclick="addUnitToMix('3')">3 BR <span id="chipPrice3" style="font-size:9px;color:var(--text4);">$2,475</span><span class="chip-flag" id="chipFlag3"></span></button>
-          <button class="unit-mix-chip" onclick="addUnitToMix('4')">4 BR <span id="chipPrice4" style="font-size:9px;color:var(--text4);">$2,800</span><span class="chip-flag" id="chipFlag4"></span></button>
-        </div>
-      </div>
-      <div class="field">
-        <label class="field-label">Total Monthly Rent <button class="help-btn" onclick="showHelp('rents')">?</button></label>
-        <span class="field-hint">Auto-fills from unit mix; override if needed</span>
+        <label class="field-label">Total Monthly Rent (all units) <button class="help-btn" onclick="showHelp('rents')">?</button></label>
+        <span class="field-hint">Sum of all unit rents from your comps</span>
         <div class="input-wrap" data-pre="$"><span class="pre">$</span>
           <input type="number" id="r-totalRent" value="5900" oninput="rapidCalc()">
         </div>
       </div>
       <div class="field">
+        <label class="field-label">Property Type</label>
+        <select id="r-propType" onchange="rapidCalc()">
+          <option value="2">Duplex</option>
+          <option value="3">Triplex</option>
+          <option value="4" selected>Fourplex</option>
+        </select>
+      </div>
+      <div class="field">
         <label class="field-label">Zip Code</label>
-        <input type="text" id="r-zip" value="55345" maxlength="5">
+        <input type="text" id="r-zip" value="55345" maxlength="5" style="width:100%;padding:10px 12px;font-family:var(--mono);font-size:15px;color:var(--text);background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r-sm);">
       </div>
     </div>
     <div class="rapid-result-grid" id="rapidResults"></div>
   </div>
 
-  <!-- Rapid MAO (detail row; the headline is above verdict) -->
+  <!-- Rapid MAO -->
   <div class="rapid-card">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-      <div style="font-size:15px;font-weight:700;">Max Offer (MAO)</div>
+      <div style="font-size:15px;font-weight:700;">Max Offer</div>
       <div style="font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-1px;" id="r-maoPrice">—</div>
     </div>
     <div style="font-size:12px;color:var(--text3);" id="r-maoDelta">Enter price and rent to calculate</div>
@@ -2011,12 +1164,7 @@ select {
     <div class="field">
       <label class="field-label">Address</label>
       <span class="field-hint">For your records — also used to label saved analyses</span>
-      <input type="text" id="address" placeholder="e.g. 5200 Minnetonka Blvd">
-    </div>
-    <div class="field">
-      <label class="field-label">Listing URL <span style="font-weight:400;color:var(--text4);font-size:11px;">(optional)</span></label>
-      <span class="field-hint">Zillow, Realtor, MLS — saved with the deal for quick revisits</span>
-      <input type="url" id="listingUrl" placeholder="https://...">
+      <input type="text" id="address" placeholder="e.g. 5200 Minnetonka Blvd" style="width:100%;padding:10px 12px;font-family:var(--sans);font-size:15px;color:var(--text);background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r-sm);">
     </div>
     <div class="field-row">
       <div class="field">
@@ -2029,8 +1177,8 @@ select {
       </div>
       <div class="field">
         <label class="field-label">Zip Code</label>
-        <span class="field-hint">Powers comp search + assessor lookup</span>
-        <input type="text" id="zipCode" value="55345" maxlength="5" pattern="[0-9]{5}">
+        <span class="field-hint">Powers the comp search links</span>
+        <input type="text" id="zipCode" value="55345" maxlength="5" pattern="[0-9]{5}" style="width:100%;padding:10px 12px;font-family:var(--mono);font-size:15px;color:var(--text);background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r-sm);">
       </div>
     </div>
     <div class="field">
@@ -2118,23 +1266,6 @@ select {
         <input type="number" id="closingCostPct" value="3.0" step="0.25" oninput="calc()"><span class="suf">%</span>
       </div>
     </div>
-    <!-- MN Housing DPA toggle (v6.0) -->
-    <div class="field">
-      <label class="dpa-toggle">
-        <input type="checkbox" id="dpaEnabled" onchange="calc()">
-        <span class="dpa-toggle-text">
-          <span class="dpa-toggle-title">🏠 MN Housing DPA — Start Up Program</span>
-          <span class="dpa-toggle-sub">Adds up to $18,000 of effective cash available (downpayment + closing cost assistance loan). Verify eligibility (income limits, first-time buyer requirements, OwnMN-approved lender) before relying on this.</span>
-        </span>
-      </label>
-    </div>
-    <div class="field" id="dpaAmountField" style="display:none;">
-      <label class="field-label">DPA Amount</label>
-      <span class="field-hint">Max $18,000. Treated as additional cash available for down payment + closing.</span>
-      <div class="input-wrap" data-pre="$"><span class="pre">$</span>
-        <input type="number" id="dpaAmount" value="18000" oninput="calc()">
-      </div>
-    </div>
   </div>
 </div>
 
@@ -2150,19 +1281,13 @@ select {
   </div>
   <div class="card-body">
     <div class="explain">
-      <strong>Fixed costs</strong> are things you pay no matter what — taxes, insurance, water/sewer, snow removal. <strong>Variable costs</strong> (next section) scale with how much rent you collect. The tax field uses your entered value directly. Enter 0 to auto-calculate using MN homestead-aware formula (v7.0).
+      <strong>Fixed costs</strong> are things you pay no matter what — taxes, insurance, water/sewer, snow removal. <strong>Variable costs</strong> (next section) scale with how much rent you collect. The tax field automatically adds a 7% buffer for Minnesota's rising levies.
     </div>
     <div class="field-row">
       <div class="field">
         <label class="field-label">Annual Property Tax</label>
-        <span class="field-hint" id="taxHint">Look up the real number on your county assessor, or enter 0 to auto-calculate from price.</span>
-        <div class="input-with-btn">
-          <div class="input-wrap" data-pre="$"><span class="pre">$</span>
-            <input type="number" id="annualTax" value="7200" oninput="calc()">
-          </div>
-          <a class="side-btn" id="assessorBtn" href="#" target="_blank" rel="noopener" onclick="return openAssessor(event)">
-            🔎 Lookup
-          </a>
+        <div class="input-wrap" data-pre="$"><span class="pre">$</span>
+          <input type="number" id="annualTax" value="7200" oninput="calc()">
         </div>
       </div>
       <div class="field">
@@ -2186,21 +1311,6 @@ select {
         <div class="input-wrap" data-pre="$"><span class="pre">$</span>
           <input type="number" id="snow" value="100" oninput="calc()">
         </div>
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label class="field-label">MN County</label>
-        <span class="field-hint">For homestead tax calculation (v7.0)</span>
-        <select id="mnCounty" onchange="calc()">
-          <option value="hennepin">Hennepin (~1.17%)</option>
-          <option value="ramsey">Ramsey (~1.28%)</option>
-          <option value="dakota">Dakota (~1.05%)</option>
-          <option value="anoka">Anoka (~1.12%)</option>
-          <option value="washington">Washington (~1.08%)</option>
-          <option value="scott">Scott (~1.06%)</option>
-          <option value="carver">Carver (~1.04%)</option>
-        </select>
       </div>
     </div>
   </div>
@@ -2280,10 +1390,10 @@ select {
     </div>
     <div class="field-row">
       <div class="field">
-        <label class="field-label">Owner-Unit Utilities (Y1)</label>
-        <span class="field-hint">Heat, elec, water you pay for your own unit (MN default $280)</span>
+        <label class="field-label">Total Cash Available</label>
+        <span class="field-hint">Everything you can put toward this deal</span>
         <div class="input-wrap" data-pre="$"><span class="pre">$</span>
-          <input type="number" id="ownerUnitUtilitiesMonthly" value="280" oninput="calc()">
+          <input type="number" id="totalCash" value="60000" oninput="calc()">
         </div>
       </div>
       <div class="field">
@@ -2294,65 +1404,14 @@ select {
         </div>
       </div>
     </div>
-    <div class="field-row">
-      <div class="field">
-        <label class="field-label">Total Cash Available</label>
-        <span class="field-hint">Everything you can put toward this deal</span>
-        <div class="input-wrap" data-pre="$"><span class="pre">$</span>
-          <input type="number" id="totalCash" value="60000" oninput="calc()">
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
 <!-- ═══ RESULTS ═══ -->
+
 <div class="result-section">
   <div class="result-label">How the deal breaks down</div>
 </div>
-
-<!-- QUICK GLANCE CARD (v7.0) -->
-<div class="glance" id="card-glance">
-  <header class="glance-head">
-    <span class="addr" id="glance-addr">Enter address above</span>
-    <span id="glance-meta">—</span>
-    <span id="glance-price">—</span>
-  </header>
-  <div class="glance-primary">
-    <label>TRUE HOUSING COST (Y1)</label>
-    <div class="big" id="glance-thc-value">—</div>
-    <div class="sub" id="glance-thc-explain">Fill in inputs above to calculate</div>
-  </div>
-  <div class="glance-row">
-    <div class="cell">
-      <label>Y2 CASH FLOW</label>
-      <div class="med" id="glance-y2cf-value">—</div>
-    </div>
-    <div class="cell">
-      <label>Y2 CoC</label>
-      <div class="med" id="glance-y2coc-value">—</div>
-    </div>
-    <div class="cell">
-      <label>LENDER GATES</label>
-      <div id="glance-gates-value" style="font-size:13px;line-height:1.4;">—</div>
-    </div>
-  </div>
-  <div class="glance-mao">
-    <label>MAO &#x394;</label>
-    <span class="glance-mao-val" id="glance-mao-value">—</span>
-  </div>
-  <div class="glance-sanity">
-    <span>1% <b id="s-1pct">—</b></span>
-    <span>50% <b id="s-50pct">—</b></span>
-    <span>Cap <b id="s-cap">—</b></span>
-    <span>GRM <b id="s-grm">—</b></span>
-    <span>BE-rent <b id="s-be">—</b></span>
-  </div>
-  <div class="glance-verdict" id="glance-verdict">—</div>
-</div>
-
-<!-- v6.1 results tiles replaced by Quick Glance in v7.0 -->
-<div style="display:none" id="v61-hidden-cards">
 
 <!-- HEURISTIC QUICK SCREENS -->
 <div class="card" id="card-heuristics">
@@ -2445,26 +1504,6 @@ select {
   </div>
 </div>
 
-<!-- SENSITIVITY MATRIX (v6.0) -->
-<div class="card" id="card-sensitivity">
-  <div class="card-hd" onclick="toggle('card-sensitivity')">
-    <div class="card-num" style="background:var(--amber-bg);color:var(--amber);border-color:var(--amber-border);">⚖</div>
-    <div class="card-hd-text">
-      <div class="card-title">Sensitivity Matrix <button class="help-btn" onclick="event.stopPropagation();showHelp('sensitivity')">?</button></div>
-      <div class="card-sub">How fragile is this deal? Cash flow across rent × rate combos</div>
-    </div>
-    <svg class="card-arrow" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"/></svg>
-  </div>
-  <div class="card-body">
-    <div class="explain">
-      This grid shows monthly cash flow (Scenario B) if rents come in lower than you expected AND rates were higher. Your current inputs are outlined in blue. <strong>Green</strong> cells pass. <strong>Red</strong> cells lose money. If half the grid is red, the deal has no margin for error.
-    </div>
-    <div class="sens-wrap">
-      <table class="sens-table" id="sensTable"></table>
-    </div>
-  </div>
-</div>
-
 <!-- CAPITAL GATE -->
 <div class="card" id="card-capital">
   <div class="card-hd" onclick="toggle('card-capital')">
@@ -2485,8 +1524,6 @@ select {
   </div>
 </div>
 
-</div><!-- /v61-hidden-cards -->
-
 <!-- MAO -->
 <div class="card open" id="card-mao">
   <div class="card-hd" onclick="toggle('card-mao')">
@@ -2501,12 +1538,37 @@ select {
     <div class="explain">
       <strong>This is the single most useful number in the calculator.</strong> The MAO is the highest price where every test passes. It doesn't care what the seller is asking — it only cares about the math. If the asking price is above the MAO, that gap is exactly how much you need to negotiate down. Bring this number to your agent.
     </div>
-    <!-- v6.0 FIX: removed duplicate Advanced panel (v5.1 bug) -->
     <div style="margin-bottom:14px;">
-      <div onclick="const el=$('maoTargets');el.style.display=el.style.display==='none'?'block':'none';this.querySelector('.arrow').textContent=el.style.display==='none'?'▸':'▾';" style="cursor:pointer; font-size:12px; font-weight:600; color:var(--accent); padding:6px 0; user-select:none;">
-        <span class="arrow">▸</span> Advanced: Set minimum return targets
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:6px;" onclick="$('maoTargets').style.display=$('maoTargets').style.display==='none'?'block':'none'">
+        <span style="font-size:10px;color:var(--text4);">▶</span> Advanced: Set yield targets <span style="font-size:10px;color:var(--text4);font-weight:400;">(optional — tightens the MAO)</span>
       </div>
-      <div id="maoTargets" style="display:none; padding-top:8px;">
+      <div id="maoTargets" style="display:none;margin-top:8px;">
+        <div class="explain" style="margin-bottom:10px;">
+          These are optional. At $0 / 0%, the MAO finds the break-even price. Raising these forces the deal to generate surplus cash flow or a minimum yield — which lowers your offer price. Good for comparing against just leaving your money in a savings account.
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label">Min Monthly Cash Flow</label>
+            <span class="field-hint">$0 = break-even. $200 = require $200/mo surplus.</span>
+            <div class="input-wrap" data-pre="$"><span class="pre">$</span>
+              <input type="number" id="targetCF" value="0" oninput="calc()">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Min Cash-on-Cash Return</label>
+            <span class="field-hint">0% = ignore. 6-8% = strong investor target.</span>
+            <div class="input-wrap" data-suf="%">
+              <input type="number" id="targetCoCR" value="0" step="0.5" oninput="calc()"><span class="suf">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div onclick="$('maoAdvanced').style.display = $('maoAdvanced').style.display === 'none' ? 'block' : 'none'; this.querySelector('span').textContent = $('maoAdvanced').style.display === 'none' ? '▸' : '▾';" style="cursor:pointer; font-size:12px; font-weight:600; color:var(--accent); padding:6px 0; user-select:none;">
+        <span>▸</span> Advanced: Set minimum return targets
+      </div>
+      <div id="maoAdvanced" style="display:none; padding-top:8px;">
         <div class="explain" style="border-left-color:var(--amber);">
           These are optional. By default the MAO finds the price where you break even. Setting targets here makes the MAO <strong>stricter</strong> — it will only show a price where you also hit your return goals. Try 0 first, then bump these up to see how much it tightens.
         </div>
@@ -2540,17 +1602,6 @@ select {
           <div class="mao-delta-label">vs. Asking Price</div>
           <div class="mao-delta-val" id="maoDeltaVal">—</div>
           <div class="mao-delta-note" id="maoDeltaNote">—</div>
-        </div>
-      </div>
-      <!-- Break-even rent solver (v6.0) -->
-      <div class="breakeven-row" id="breakevenRow">
-        <div>
-          <div class="breakeven-label">Break-Even Rent @ Asking</div>
-          <div class="breakeven-sub" id="breakevenSub">At this price, total rent must be ≥</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="breakeven-val" id="breakevenVal">—</div>
-          <div class="breakeven-sub" id="breakevenMargin">for Scenario B to break even</div>
         </div>
       </div>
       <div class="mao-constraints" id="maoConstraints"></div>
@@ -2627,6 +1678,7 @@ select {
 
 </div><!-- /fullMode -->
 </div><!-- /app -->
+
 <script>
 /* ─── Utilities ─── */
 const $ = id => document.getElementById(id);
@@ -2766,57 +1818,6 @@ function renderLines(id, items) {
   }).join('');
 }
 
-/* ═══ MN HOMESTEAD-AWARE PROPERTY TAX (v7.0) ═══
-   Per MN Stat. 273.13. Duplex/triplex: whole property homestead.
-   Quad: only owner unit share homesteaded.
-   2026 composite local rates (verify annually).
-*/
-function mnPropertyTaxAnnual(price, n, ownerOccupied, county) {
-  const LOCAL_RATES = {
-    hennepin: 1.17, ramsey: 1.28, dakota: 1.05,
-    anoka: 1.12, washington: 1.08, scott: 1.06, carver: 1.04
-  };
-  const localRate = LOCAL_RATES[county] || 1.15;
-  let taxCapacity = 0;
-  if (!ownerOccupied) {
-    taxCapacity = price * 0.0125;
-  } else if (n <= 3) {
-    const hmve = Math.max(0, Math.min(38000, 38000 - 0.09 * Math.max(0, price - 100000)));
-    const taxable = Math.max(0, price - hmve);
-    taxCapacity = Math.min(500000, taxable) * 0.01 + Math.max(0, taxable - 500000) * 0.0125;
-  } else {
-    const ownerVal = price / n;
-    const nonHSVal = price - ownerVal;
-    const hmve = Math.max(0, Math.min(38000, 38000 - 0.09 * Math.max(0, ownerVal - 100000)));
-    const taxableHS = Math.max(0, ownerVal - hmve);
-    taxCapacity = (Math.min(500000, taxableHS) * 0.01 + Math.max(0, taxableHS - 500000) * 0.0125) + nonHSVal * 0.0125;
-  }
-  return taxCapacity * localRate;
-}
-
-/* ═══ FHA SELF-SUFFICIENCY TEST (v7.0) ═══
-   Applies to 3-4 unit FHA only. Duplex exempt per HUD.
-*/
-function computeFhaSst(n, loanType, gsi, piti, haircut) {
-  if (n < 3 || loanType !== 'fha') {
-    return { applicable: false, pass: true, label: 'N/A', margin: 0 };
-  }
-  const netRent = gsi * haircut;
-  const pass = netRent >= piti;
-  const margin = netRent - piti;
-  return {
-    applicable: true,
-    pass,
-    netRent,
-    piti,
-    margin,
-    label: pass
-      ? 'PASS (+$' + Math.abs(Math.round(margin)) + '/mo)'
-      : 'FAIL (-$' + Math.abs(Math.round(margin)) + '/mo)',
-    note: 'HUD ' + Math.round(haircut * 100) + '% rule; verify with lender.'
-  };
-}
-
 /* ═══════════════════════════════════════
    MAIN CALCULATION ENGINE
    Every formula verified against BiggerPockets
@@ -2843,9 +1844,6 @@ function calc() {
   const maintRate = getNum('maintRate') / 100;
   const capexRate = getNum('capexRate') / 100;
   const mgmtRate = getNum('mgmtRate') / 100;
-  const ownerUnitUtil = getNum('ownerUnitUtilitiesMonthly');
-  const mnCounty = ($('mnCounty') || {}).value || 'hennepin';
-  const sstHaircut = 0.75;
 
   // Rents + Other Income
   const rents = [];
@@ -2870,13 +1868,8 @@ function calc() {
     pi = loanAmt * (monthlyRate * f) / (f - 1);
   }
 
-  // MN homestead-aware tax (v7.0) — uses user input if nonzero, else auto-calculates
-  const autoTax = price > 0 ? mnPropertyTaxAnnual(price, n, ownerUnit >= 0 && ownerUnit < n, mnCounty) : annualTax;
-  const effectiveAnnualTax = annualTax > 0 ? annualTax : autoTax;
-  const monthlyTax = effectiveAnnualTax / 12;
-  if ($('taxHint') && price > 0) {
-    $('taxHint').textContent = 'MN auto-calc: $' + Math.round(autoTax).toLocaleString() + '/yr (set field to 0 to use it)';
-  }
+  // Tax with 7% MN levy buffer
+  const monthlyTax = (annualTax * 1.07) / 12;
   const monthlyIns = annualIns / 12;
   const piti = pi + monthlyTax + monthlyIns + mip;
   const fixedExp = monthlyTax + monthlyIns + utilities + snow;
@@ -2898,10 +1891,7 @@ function calc() {
 
   // ✅ FIX: Cap Rate annualized (was monthly — critical bug in v2)
   const capRate = price > 0 ? (noi * 12) / price : 0;
-  // Reserves for Cash-to-Close (v7.0) — FHA duplex 1mo, FHA 3-4 unit 3mo, conventional/DSCR 6mo
-  const reserveMonths = loanType === 'fha' && n <= 2 ? 1 : loanType === 'fha' ? 3 : 6;
-  const reservesAmt = piti * reserveMonths;
-  const totalCashIn = downPayment + closingCosts + repairs + reservesAmt;
+  const totalCashIn = downPayment + closingCosts + repairs;
   const coc = totalCashIn > 0 ? (cf * 12) / totalCashIn : 0;
 
   // ✅ NEW: DSCR
@@ -2989,10 +1979,6 @@ function calc() {
   const sApass = netHousing <= comfortCap ? 'pass' : 'fail';
   $('sa-badge').className = `scen-badge ${sApass}`;
   $('sa-badge').textContent = netHousing <= comfortCap ? '✓ PASS' : '✗ FAIL';
-
-  // True Housing Cost (Y1) — Trench/Curelop metric (v7.0)
-  // PITI + owner unit utilities (heat/elec/water) minus net tenant offset
-  const thc = piti + ownerUnitUtil - netOffset;
 
   // ── Returns & FHA ──
   const fha75 = gsi * 0.75;
@@ -3105,91 +2091,6 @@ function calc() {
     v.className = 'verdict fail'; vi.textContent = '✗';
     vt.textContent = 'This deal doesn\'t work at this price';
     vd.textContent = `${critFails} critical test(s) failed. The math says walk away or submit an offer at the MAO price below — not the asking price.`;
-  }
-
-  // ── Quick Glance Card (v7.0) ──
-  {
-    // FHA SST via proper function (uses sstHaircut = 0.75)
-    const fhaSst = computeFhaSst(n, loanType, gsi, piti, sstHaircut);
-
-    // Header row
-    const addrVal = ($('address') || {}).value || '';
-    $('glance-addr').textContent = addrVal.trim() || 'Enter address above';
-    $('glance-meta').textContent = (n === 2 ? 'Duplex' : n === 3 ? 'Triplex' : 'Fourplex') +
-      (ownerUnit >= 0 ? ' \u00b7 Owner: Unit ' + (ownerUnit + 1) : '');
-    $('glance-price').textContent = price > 0 ? '$' + Math.round(price).toLocaleString() : '\u2014';
-
-    // TRUE HOUSING COST (Y1)
-    const thcColor = thc <= 0 ? 'var(--green)' : thc <= 300 ? 'var(--amber)' : 'var(--red)';
-    $('glance-thc-value').textContent = fmt(thc) + '/mo';
-    $('glance-thc-value').style.color = thcColor;
-    if (thc <= 0) {
-      $('glance-thc-explain').textContent = 'Cash-flowing while living free \u2014 the Trench ideal';
-    } else if (thc <= comfortCap) {
-      $('glance-thc-explain').textContent = '$' + Math.round(thc).toLocaleString() + '/mo out-of-pocket \u2014 still beats renting';
-    } else {
-      $('glance-thc-explain').textContent = '$' + Math.round(thc).toLocaleString() + '/mo \u2014 over your comfort cap';
-    }
-
-    // Y2 CASH FLOW (Scenario B = all units rented)
-    const y2cfColor = cf >= 200 ? 'var(--green)' : cf >= 0 ? 'var(--amber)' : 'var(--red)';
-    $('glance-y2cf-value').textContent = fmt(cf) + '/mo';
-    $('glance-y2cf-value').style.color = y2cfColor;
-
-    // Y2 COC (with reserves in denominator)
-    const cocColor = coc >= 0.10 ? 'var(--green)' : coc >= 0.06 ? 'var(--amber)' : 'var(--red)';
-    $('glance-y2coc-value').textContent = fmtPct(coc);
-    $('glance-y2coc-value').style.color = cocColor;
-
-    // LENDER GATES: DSCR + FHA SST
-    const dscrColor = dscr >= 1.25 ? 'var(--green)' : dscr >= 1.0 ? 'var(--amber)' : 'var(--red)';
-    let gatesHTML = '<div style="color:' + dscrColor + ';font-family:var(--mono);font-weight:600;">DSCR ' + dscr.toFixed(2) + 'x</div>';
-    if (fhaSst.applicable) {
-      const sstColor = fhaSst.pass ? 'var(--green)' : 'var(--red)';
-      gatesHTML += '<div style="color:' + sstColor + ';font-size:11px;margin-top:2px;">SST: ' + fhaSst.label + '</div>';
-    } else {
-      gatesHTML += '<div style="color:var(--text4);font-size:11px;margin-top:2px;">SST: N/A (duplex)</div>';
-    }
-    $('glance-gates-value').innerHTML = gatesHTML;
-
-    // SANITY CHECKS
-    $('s-1pct').textContent = fmtPct(onePctRatio);
-    $('s-1pct').style.color = s1pct === 'pass' ? 'var(--green)' : s1pct === 'warn' ? 'var(--amber)' : 'var(--red)';
-    $('s-50pct').textContent = fmt(cf50) + '/mo';
-    $('s-50pct').style.color = cf50 >= 0 ? 'var(--green)' : 'var(--red)';
-    $('s-cap').textContent = fmtPct(capRate);
-    $('s-cap').style.color = capRate >= 0.06 ? 'var(--green)' : capRate >= 0.04 ? 'var(--amber)' : 'var(--red)';
-    $('s-grm').textContent = grm.toFixed(1) + 'x';
-    $('s-grm').style.color = sGrm === 'pass' ? 'var(--green)' : sGrm === 'warn' ? 'var(--amber)' : 'var(--red)';
-    const rentFactor = (1 - vacRate) - (maintRate + capexRate + mgmtRate);
-    const beRent = rentFactor > 0 ? (fixedExp + pi + mip) / rentFactor : 0;
-    $('s-be').textContent = fmt(beRent);
-    $('s-be').style.color = gsi >= beRent ? 'var(--green)' : 'var(--red)';
-
-    // VERDICT
-    let glanceVerdict = '';
-    let glanceVerdictColor = 'var(--text2)';
-    if (fhaSst.applicable && !fhaSst.pass) {
-      glanceVerdict = 'FHA won\'t approve \u2014 SST fails by $' + Math.abs(Math.round(fhaSst.margin)) + '/mo. Consider conventional or higher rents.';
-      glanceVerdictColor = 'var(--red)';
-    } else if (thc <= 0 && coc >= 0.10) {
-      glanceVerdict = 'Strong deal \u2014 live free Y1, ' + (coc * 100).toFixed(1) + '% CoC at Y2.';
-      glanceVerdictColor = 'var(--green)';
-    } else if (thc <= 0) {
-      glanceVerdict = 'Live-free deal \u2014 housing cost eliminated. CoC at Y2: ' + (coc * 100).toFixed(1) + '%.';
-      glanceVerdictColor = 'var(--green)';
-    } else if (thc <= 300 && coc >= 0.08) {
-      glanceVerdict = 'Marginal house hack \u2014 $' + Math.round(thc) + '/mo Y1 cost, but ' + (coc * 100).toFixed(1) + '% CoC once you move out.';
-      glanceVerdictColor = 'var(--amber)';
-    } else if (thc > 500) {
-      glanceVerdict = 'Expensive \u2014 $' + Math.round(thc) + '/mo out-of-pocket. Better deals exist unless forced-appreciation angle.';
-      glanceVerdictColor = 'var(--red)';
-    } else {
-      glanceVerdict = 'Run full analysis \u2014 check rent comps and compare to 2 other deals.';
-      glanceVerdictColor = 'var(--text2)';
-    }
-    $('glance-verdict').textContent = glanceVerdict;
-    $('glance-verdict').style.color = glanceVerdictColor;
   }
 
   // ── Pro Forma Cap Rate + Initial Equity (added to returns card) ──
@@ -3361,20 +2262,6 @@ function calcMAO(o) {
     $('maoDeltaVal').textContent = '—';
     $('maoDeltaVal').className = 'mao-delta-val';
     $('maoDeltaNote').textContent = '';
-  }
-
-  // Update Quick Glance MAO delta (v7.0)
-  const gmaoEl = $('glance-mao-value');
-  if (gmaoEl) {
-    if (isFinite(mao) && mao > 0 && o.price > 0) {
-      gmaoEl.textContent = ok
-        ? '$' + Math.round(delta).toLocaleString() + ' under MAO (' + fmt(mao) + ')'
-        : '$' + Math.round(Math.abs(delta)).toLocaleString() + ' over MAO \u2014 offer ' + fmt(mao);
-      gmaoEl.style.color = ok ? 'var(--green)' : Math.abs(delta) <= 5000 ? 'var(--amber)' : 'var(--red)';
-    } else {
-      gmaoEl.textContent = '\u2014';
-      gmaoEl.style.color = 'var(--text4)';
-    }
   }
 
   $('maoConstraints').innerHTML = constraints.filter(c => c.active).map(c => {
