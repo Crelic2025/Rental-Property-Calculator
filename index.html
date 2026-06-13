@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <!--
-  RENTAL PROPERTY CALCULATOR v7.0
-  House Hack Edition — Minnesota
+  RENTAL PROPERTY CALCULATOR v7.3 — RPC v2-Aligned
+  House Hack Edition — Minnesota / Twin Cities
   All formulas verified against BiggerPockets Four Square Method
 
-  v6.1 changes (from v6.0):
-  - NEW: Statewide MN market database (17 submarkets, 2026 rent data)
-  - NEW: Zip-based auto-detect with manual override dropdown
-  - NEW: Nearest-zip fallback for unknown areas
-  - NEW: Verified vs. interpolated rent flags on chips and range bars
-  - NEW: Market banner showing active market + confidence signal
-  - NEW: Deal records store selected market for comparison
+  v7.3 changes (from v7.2):
+  - Rapid mode now mirrors Full mode: Scenario B 3-state bands (+$150 pass / $0–149 weak / <$0 fail)
+  - Rapid MAO solves Scenario B at +$150 target (parity with Full); stress stays $0 survival
+  - Rapid mode treats 2–4 units (incl. fourplex) as owner-occupied for MN homestead tax
+  - Review bucket renders in BOTH modes; PRICE_DROP_WATCH reachable (real MAO gap fed in)
+  - targetCF: empty → 150 default; explicit 0 honored as 0
+  - FHA self-sufficiency: single source of truth, configurable haircut, market-rent base (excl. other income)
+  - Scenario A MAO split into clean ($2,600) target + ceiling ($3,200) lines; clean binds headline
+  - Decision card shows bucket / action / why / top blockers
+  - Reset restores ownerUnitUtilitiesMonthly + sstHaircutInput; one-time targetCF=0→150 migration
 
   v6.0 foundation (unchanged):
   - Deal Journal with triage workflow (localStorage)
@@ -24,7 +27,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Rental Property Calculator v7</title>
+<title>Rental Property Calculator v7.3 · RPC v2-Aligned</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1644,7 +1647,7 @@ select {
 .help-example .he-val { color: var(--text); font-weight: 600; }
 .help-example .he-result { color: var(--green); font-weight: 600; }
 
-/* ── Quick Glance Card (v7.0) ── */
+/* ── Quick Glance Card (v7.1) ── */
 .glance { background: var(--card); border-radius: var(--r); padding: 18px; border: 1px solid var(--border); box-shadow: var(--shadow); margin-bottom: 12px; }
 .glance-head { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; font-size: 12px; color: var(--text3); margin-bottom: 14px; font-family: var(--mono); }
 .glance-head .addr { color: var(--text); font-weight: 600; font-family: var(--sans); }
@@ -1725,7 +1728,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
 
 <!-- ═══ HEADER ═══ -->
 <div class="header">
-  <div class="header-badge">v7.0 · House Hack Edition · Minnesota</div>
+  <div class="header-badge">v7.3 · RPC v2-Aligned · Minnesota</div>
   <h1>Rental Property Calculator</h1>
   <p>Screen fast. Analyze deep. Remember every deal.</p>
 </div>
@@ -1805,24 +1808,6 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   </div>
 </div>
 
-<!-- ═══ MARKET SELECTOR OVERLAY (v6.1) ═══ -->
-<div class="market-overlay" id="marketOverlay" onclick="if(event.target===this)closeMarketPicker()">
-  <div class="market-modal">
-    <div class="help-modal-hd">
-      <div class="help-modal-title">Choose Market</div>
-      <button class="help-modal-close" onclick="closeMarketPicker()">✕</button>
-    </div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">
-      <span id="marketPickerContext"></span>
-    </div>
-    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">
-      <span style="color:var(--green);">●</span> verified 2026 data &nbsp;·&nbsp;
-      <span style="color:var(--amber);">✦</span> interpolated (limited data)
-    </div>
-    <div class="market-list" id="marketList"></div>
-  </div>
-</div>
-
 <!-- ═══ HEADLINE MAO DELTA (v6.0 — above verdict in rapid mode) ═══ -->
 <div class="mao-headline neutral" id="maoHeadline" style="display:none;">
   <div class="mao-headline-label" id="maoHeadlineLabel">Over / Under Your MAO</div>
@@ -1839,6 +1824,26 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
     <div class="verdict-desc">The calculator will tell you if this deal passes or fails — and exactly why.</div>
   </div>
 </div>
+
+<!-- ═══ RPC v2 REVIEW BUCKET (v7.3) ═══ -->
+<div class="gates" id="reviewBucketCard"></div>
+
+<!-- ═══ VERIFY-BEFORE-OFFER CHECKLIST (v7.3) ═══ -->
+<details id="verifyChecklist" style="margin:10px 0;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);">
+  <summary style="padding:10px 12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);list-style:none;">
+    ✅ Verify before you offer <span style="font-weight:500;color:var(--text4);">(untrusted until checked)</span>
+  </summary>
+  <div style="padding:0 12px 12px;font-size:12px;line-height:1.7;color:var(--text2);">
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">Rent comps — 3 live listings for each unit size (not seller pro forma, not Zestimate)</label>
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">Legal unit count — confirm 2/3/4 units are legal/conforming (city records, not the listing)</label>
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">Rental license / certificate of occupancy required in this city?</label>
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">Taxes — pull actual assessor bill; note taxes change when you move out (loss of homestead)</label>
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">Insurance — get a real multifamily quote, not the estimate</label>
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">Lender — confirm FHA vs conventional, down payment, MIP/PMI, and cash-to-close in writing</label>
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">FHA 3–4 unit — confirm self-sufficiency test with lender before relying on FHA</label>
+    <label style="display:block;"><input type="checkbox" style="margin-right:8px;">Owner-paid utilities & CapEx — realistic for an older Twin Cities building?</label>
+  </div>
+</details>
 
 <!-- ═══ TRIAGE BUTTONS (v6.0) ═══ -->
 <div class="triage-row" id="triageRow" style="display:none;">
@@ -1928,15 +1933,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
       </div>
       <div class="full-width field">
         <label class="field-label">Unit Mix <button class="help-btn" onclick="showHelp('unitmix')">?</button></label>
-        <span class="field-hint">Tap bedroom types to build your mix — auto-fills total rent from market medians</span>
-        <div class="market-banner unknown" id="marketBanner" onclick="openMarketPicker()">
-          <span class="market-banner-ico">📍</span>
-          <span class="market-banner-text">
-            <strong id="marketBannerName">Select market</strong>
-            <span class="market-conf" id="marketBannerConf"></span>
-          </span>
-          <span class="market-banner-arrow">▾</span>
-        </div>
+        <span class="field-hint">Tap bedroom types to build your mix — auto-fills total rent from MN statewide medians. For address-specific rents, use ⚡ Fetch &amp; Analyze above.</span>
         <div class="unit-mix-queue" id="unitMixQueue"></div>
         <div class="unit-mix-wrap" style="margin-top:6px;">
           <span style="font-size:11px;color:var(--text3);margin-right:4px;">Add:</span>
@@ -2107,13 +2104,14 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   </div>
   <div class="card-body">
     <div class="explain">
-      <strong>FHA</strong> = lower down payment (3.5%) but you pay mortgage insurance forever. <strong>Conventional</strong> = higher down (5%) but mortgage insurance drops off once you build 20% equity. FHA also requires a special "self-sufficiency test" on 3–4 unit properties — if it fails, you'll need to go conventional.
+      <strong>FHA</strong> = lower down payment (3.5%) but you pay mortgage insurance forever. <strong>Conventional</strong> = higher down (5%) but mortgage insurance drops off once you build 20% equity. FHA also requires a special "self-sufficiency test" on 3–4 unit properties — if it fails, you'll need to go conventional. <strong>RPC v2 checks FHA and conventional in parallel; this manual calculator shows the selected track only.</strong>
     </div>
     <div class="field">
       <label class="field-label">Loan Type</label>
       <select id="loanType" onchange="calc()">
         <option value="fha">FHA — 3.5% Down</option>
         <option value="conv">Conventional — 5% Down</option>
+        <option value="dscr">DSCR (Post-refi)</option>
       </select>
     </div>
     <div class="field-row">
@@ -2170,7 +2168,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   </div>
   <div class="card-body">
     <div class="explain">
-      <strong>Fixed costs</strong> are things you pay no matter what — taxes, insurance, water/sewer, snow removal. <strong>Variable costs</strong> (next section) scale with how much rent you collect. The tax field uses your entered value directly. Enter 0 to auto-calculate using MN homestead-aware formula (v7.0).
+      <strong>Fixed costs</strong> are things you pay no matter what — taxes, insurance, water/sewer, snow removal. <strong>Variable costs</strong> (next section) scale with how much rent you collect. The tax field uses your entered value directly. Enter 0 to auto-calculate using MN homestead-aware formula (v7.1).
     </div>
     <div class="field-row">
       <div class="field">
@@ -2211,7 +2209,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
     <div class="field-row">
       <div class="field">
         <label class="field-label">MN County</label>
-        <span class="field-hint">For homestead tax calculation (v7.0)</span>
+        <span class="field-hint">For homestead tax calculation (v7.1)</span>
         <select id="mnCounty" onchange="calc()">
           <option value="hennepin">Hennepin (~1.17%)</option>
           <option value="ramsey">Ramsey (~1.28%)</option>
@@ -2292,7 +2290,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
       </div>
       <div class="field">
         <label class="field-label">Max Monthly Housing Cost <button class="help-btn" onclick="showHelp('comfortcap')">?</button></label>
-        <span class="field-hint">Your personal budget ceiling</span>
+        <span class="field-hint">Pain ceiling, not a goal — RPC v2 clean target is $2,600, hard ceiling $3,200</span>
         <div class="input-wrap" data-pre="$"><span class="pre">$</span>
           <input type="number" id="comfortCap" value="3200" oninput="calc()">
         </div>
@@ -2305,6 +2303,11 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
         <div class="input-wrap" data-pre="$"><span class="pre">$</span>
           <input type="number" id="ownerUnitUtilitiesMonthly" value="280" oninput="calc()">
         </div>
+      </div>
+      <div class="field">
+        <label class="field-label">FHA SST Haircut</label>
+        <span class="field-hint">HUD net rent factor for 3–4 unit FHA (default 0.75 per 2026 guidance)</span>
+        <input type="number" id="sstHaircutInput" value="0.75" step="0.01" min="0.50" max="1.00" oninput="calc()">
       </div>
       <div class="field">
         <label class="field-label">Monthly Living Expenses</label>
@@ -2331,7 +2334,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   <div class="result-label">How the deal breaks down</div>
 </div>
 
-<!-- QUICK GLANCE CARD (v7.0) -->
+<!-- QUICK GLANCE CARD (v7.1) -->
 <div class="glance" id="card-glance">
   <header class="glance-head">
     <span class="addr" id="glance-addr">Enter address above</span>
@@ -2339,7 +2342,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
     <span id="glance-price">—</span>
   </header>
   <div class="glance-primary">
-    <label>TRUE HOUSING COST (Y1)</label>
+    <label>TRUE HOUSING COST (Y1, incl. reserves)</label>
     <div class="big" id="glance-thc-value">—</div>
     <div class="sub" id="glance-thc-explain">Fill in inputs above to calculate</div>
   </div>
@@ -2372,7 +2375,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   <div id="glance-zori" style="display:none;font-size:11px;color:var(--text3);padding:4px 0 0;text-align:center;"></div>
 </div>
 
-<!-- v6.1 results tiles replaced by Quick Glance in v7.0 -->
+<!-- v6.1 results tiles replaced by Quick Glance in v7.1 -->
 <div style="display:none" id="v61-hidden-cards">
 
 <!-- HEURISTIC QUICK SCREENS -->
@@ -2405,7 +2408,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   </div>
   <div class="card-body">
     <div class="explain">
-      <strong>This is the most important test.</strong> Scenario A = you live there, tenants offset your mortgage. Scenario B = you've moved out, all units rented. <strong>If Scenario B is negative, reject the deal — no exceptions.</strong> You'll eventually move out, and the property needs to stand on its own.
+      <strong>This is the most important test.</strong> Scenario A = you live there, tenants offset your mortgage. Scenario B = you've moved out, all units rented. <strong>RPC v2 target: Scenario A clean ≤ $2,600, ceiling $3,200; Scenario B target ≥ +$150/mo. Breakeven is weak, not clean.</strong>
     </div>
     <div class="scenario-grid">
       <div class="scen">
@@ -2423,7 +2426,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
           <span class="scen-badge neutral" id="sb-badge">—</span>
         </div>
         <div class="scen-hero" id="sb-hero">—</div>
-        <div class="scen-cap">Monthly cash flow (must be ≥ $0)</div>
+        <div class="scen-cap">Monthly cash flow (target ≥ +$150; breakeven is weak)</div>
         <div class="scen-lines" id="sb-lines"></div>
       </div>
     </div>
@@ -2498,11 +2501,12 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   </div>
   <div class="card-body">
     <div class="explain">
-      Your cash gets split into 4 buckets: down payment, closing costs, repairs, and <strong>an emergency reserve</strong>. You must keep at least 3 months of (mortgage + living expenses) in reserve after closing. If there's not enough left, this deal requires more cash than you have.
+      RPC v2 cash gate counts down payment + closing costs + prepaids + required reserves + immediate repairs. <strong>≤ $25k is clean; $25k–$35k is affordable but cash-heavy; > $35k fails unless manually overridden.</strong> Seller credits are shown as a separate scenario.
     </div>
     <div class="cap-buckets" id="capBuckets"></div>
     <div class="progress-track"><div class="progress-fill" id="capFill" style="width:0%"></div></div>
     <div class="cap-footer" id="capFooter"></div>
+    <div id="capNote" style="display:none;margin-top:10px;padding:8px 12px;border-radius:var(--r-sm);font-size:12px;line-height:1.5;"></div>
   </div>
 </div>
 
@@ -2534,9 +2538,9 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
         <div class="field-row">
           <div class="field">
             <label class="field-label">Min Monthly Cash Flow</label>
-            <span class="field-hint">$0 = break even. $200 = require $200/mo surplus.</span>
+            <span class="field-hint">$150 = RPC v2 target. $0 = breakeven/weak.</span>
             <div class="input-wrap" data-pre="$"><span class="pre">$</span>
-              <input type="number" id="targetCF" value="0" oninput="calc()">
+              <input type="number" id="targetCF" value="150" oninput="calc()">
             </div>
           </div>
           <div class="field">
@@ -2563,6 +2567,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
           <div class="mao-delta-note" id="maoDeltaNote">—</div>
         </div>
       </div>
+      <div id="maoSentence" style="display:none;margin:10px 0 2px;padding:10px 12px;background:var(--surface2);border-radius:var(--r-sm);font-size:13px;line-height:1.55;color:var(--text2);"></div>
       <!-- Break-even rent solver (v6.0) -->
       <div class="breakeven-row" id="breakevenRow">
         <div>
@@ -2651,7 +2656,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
 <script>
 /* ─── Proxy config (Cloudflare Worker for RentCast + HUD FMR) ─── */
 // Updated by saveProxyUrl() when user saves a URL in API settings
-let PROXY = localStorage.getItem('rpc-proxy-url') || 'https://yourname-proxy.yourname.workers.dev';
+let PROXY = localStorage.getItem('rpc-proxy-url') || 'https://rpc-proxy.prestigiouslegacies.workers.dev';
 
 async function geocodeCensus(address) {
   const url = 'https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress'
@@ -2803,6 +2808,105 @@ function fmtPct(n, dp=2) {
 function getNum(id) { return parseFloat($(id).value) || 0; }
 function toggle(id) { $(id).classList.toggle('open'); }
 
+
+/* ─── RPC v2 alignment constants (v7.3) ─── */
+const RPC_V2 = {
+  scenarioAClean: 2600,
+  scenarioACeiling: 3200,
+  scenarioBTarget: 150,
+  cashPreferred: 25000,
+  cashCeiling: 35000,
+  cashManualReview: 40000,
+  maoViableGapPct: 0.05,
+  maoConditionalGapPct: 0.10
+};
+
+function scenarioABand(cost) {
+  if (cost <= RPC_V2.scenarioAClean) return 'clean';
+  if (cost <= RPC_V2.scenarioACeiling) return 'weak';
+  return 'fail';
+}
+function scenarioBStatus(cf) {
+  if (cf >= RPC_V2.scenarioBTarget) return 'pass';
+  if (cf >= 0) return 'warn';
+  return 'fail';
+}
+function cashToCloseBand(noCredits, withCredits) {
+  if (noCredits <= RPC_V2.cashPreferred) return 'clean';
+  if (noCredits <= RPC_V2.cashCeiling) return 'cash_heavy';
+  if (withCredits <= RPC_V2.cashCeiling) return 'concession_dependent';
+  if (withCredits <= RPC_V2.cashManualReview) return 'manual_review';
+  return 'fail';
+}
+function cashBandLabel(band) {
+  return ({
+    clean: 'Clean capital fit',
+    cash_heavy: 'Affordable but cash-heavy',
+    concession_dependent: 'Needs seller credits',
+    manual_review: 'Manual override / stretch',
+    fail: 'Capital gate fail'
+  })[band] || '—';
+}
+function cashBandStatus(band) {
+  if (band === 'clean') return 'pass';
+  if (band === 'fail') return 'fail';
+  return 'warn';
+}
+function reviewBucket(ctx) {
+  if (!ctx.price || !ctx.gsi) {
+    return { bucket: 'BAD_DATA', action: 'FIX DATA', note: 'Missing price or rent input.', blockers: ['Enter purchase price and rent'] };
+  }
+  // Identify what is failing / weak, for the "why" line and blocker list
+  const blockers = [];
+  if (ctx.bStatus === 'fail') blockers.push('Scenario B cash flow negative');
+  else if (ctx.bStatus === 'warn') blockers.push('Scenario B weak (breakeven, < +$150)');
+  if (ctx.aBand === 'fail') blockers.push('Live-in cost over $3,200 ceiling');
+  else if (ctx.aBand === 'weak') blockers.push('Live-in cost $2,600–$3,200 (over clean target)');
+  if (ctx.cashBand === 'fail') blockers.push('Cash-to-close over capital gate');
+  else if (ctx.cashBand && ctx.cashBand !== 'clean') blockers.push('Cash-heavy / needs concessions');
+  if (ctx.fhaFail) blockers.push('FHA self-sufficiency test fails');
+  if (!ctx.stressPass) blockers.push('Fails recession stress test');
+
+  const hardFail = (ctx.aBand === 'fail' || ctx.bStatus === 'fail' || ctx.cashBand === 'fail' || ctx.fhaFail || !ctx.stressPass);
+  const gap = ctx.maoGapPct || 0;
+  const inWatchWindow = gap > RPC_V2.maoConditionalGapPct && gap <= 0.25; // 10–25% over MAO
+
+  // Price-driven failure: deal fails at the CURRENT price, but a viable (lower) MAO exists within
+  // negotiating range. That's a watch / low-offer candidate, not an outright reject.
+  if (hardFail && inWatchWindow) {
+    return { bucket: 'PRICE_DROP_WATCH', action: 'WATCH', note: 'Fails at asking, but a viable price exists 10–25% lower — watch or make a low offer at the MAO.', blockers };
+  }
+  // Structural / deep failure: hard gate fails AND price is not the fixable lever (gap > 25% or no viable MAO).
+  if (hardFail) {
+    return { bucket: 'REJECT_BY_MATH', action: 'SKIP', note: gap > 0.25 ? 'Fails core math; the price gap is too large to negotiate.' : 'Core math fails at this price.', blockers };
+  }
+  // Not a hard fail, but still meaningfully over MAO (e.g., a yield/clean-Scenario-A target binds): watch.
+  if (inWatchWindow) {
+    return { bucket: 'PRICE_DROP_WATCH', action: 'WATCH', note: 'Passes the hard gates, but overpriced vs your targets — math is cleaner near the MAO.', blockers: blockers.length ? blockers : ['Priced above your target MAO'] };
+  }
+  if (ctx.aBand === 'clean' && ctx.bStatus === 'pass' && ctx.stressPass && ctx.cashBand === 'clean') {
+    return { bucket: 'TOP_REVIEW', action: 'PURSUE', note: 'Clean math across live-in, move-out, stress, and capital.', blockers: [] };
+  }
+  return { bucket: 'VERIFY_FIRST', action: 'VERIFY', note: 'Promising, but assumptions or capital are not yet clean.', blockers };
+}
+function renderReviewBucket(ctx) {
+  const el = $('reviewBucketCard');
+  if (!el) return;
+  const r = reviewBucket(ctx);
+  const cls = r.bucket === 'TOP_REVIEW' ? 'pass' : (r.bucket === 'REJECT_BY_MATH' || r.bucket === 'BAD_DATA') ? 'fail' : 'warn';
+  const quickTag = ctx.quick ? ' <span style="font-size:10px;color:var(--text4);font-weight:500;">(quick estimate)</span>' : '';
+  const blockerHTML = (r.blockers && r.blockers.length)
+    ? `<div style="margin-top:6px;font-size:11px;color:var(--text3);line-height:1.5;">Top blockers: ${r.blockers.slice(0,3).join(' · ')}</div>`
+    : '';
+  el.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+      <span class="gate-pill ${cls}" style="font-weight:700;">${r.bucket}${quickTag}</span>
+      <span class="gate-pill ${cls}">Action: ${r.action}</span>
+    </div>
+    <div style="margin-top:6px;font-size:12px;color:var(--text2);line-height:1.5;">${r.note}</div>
+    ${blockerHTML}`;
+}
+
 /* ─── Market ranges from Minnetonka PDF ─── */
 const MARKET_RANGES = {
   '0': { label: 'Studio', low: 1200, high: 1337, default: 1200 },
@@ -2811,6 +2915,60 @@ const MARKET_RANGES = {
   '3': { label: '3 BR', low: 2475, high: 3375, default: 2475 },
   '4': { label: '4 BR', low: 2800, high: 3600, default: 2800 },
 };
+
+/* ─── Unit Mix Queue (v7.2 — restored from v6.1) ─── */
+let unitMixQueue = [];
+
+function addUnitToMix(beds) {
+  if (!MARKET_RANGES[beds]) return;
+  unitMixQueue.push({ beds, rent: MARKET_RANGES[beds].default });
+  renderUnitMixQueue();
+  autoFillTotalRentFromMix();
+}
+
+function removeUnitFromMix(index) {
+  unitMixQueue.splice(index, 1);
+  renderUnitMixQueue();
+  autoFillTotalRentFromMix();
+}
+
+function renderUnitMixQueue() {
+  const el = $('unitMixQueue');
+  if (!el) return;
+  if (unitMixQueue.length === 0) {
+    el.innerHTML = '<span style="font-size:11px;color:var(--text3);">Tap chips below to add units…</span>';
+    return;
+  }
+  el.innerHTML = unitMixQueue.map((u, i) => {
+    const label = MARKET_RANGES[u.beds] ? MARKET_RANGES[u.beds].label : u.beds + 'BR';
+    return '<span class="unit-mix-queue-item">' +
+      label + ' · $' + u.rent.toLocaleString() +
+      '<span class="remove" onclick="removeUnitFromMix(' + i + ')">×</span>' +
+    '</span>';
+  }).join('');
+  // If queue length is 2-4 and r-propType exists, sync it so propType matches
+  const n = unitMixQueue.length;
+  const rp = $('r-propType');
+  if (rp && n >= 2 && n <= 4) rp.value = String(n);
+}
+
+function autoFillTotalRentFromMix() {
+  const total = unitMixQueue.reduce((s, u) => s + u.rent, 0);
+  const rt = $('r-totalRent');
+  if (rt) {
+    rt.value = total;
+    if (typeof rapidCalc === 'function') rapidCalc();
+  }
+}
+
+/* ─── Rapid mode property-type change handler (v7.2 — restored) ─── */
+function onRapidPropTypeChange() {
+  // Sync to full-mode propType so defaults carry through, then recalc
+  const rp = $('r-propType');
+  const fp = $('propType');
+  if (rp && fp) fp.value = rp.value;
+  if (typeof rapidCalc === 'function') rapidCalc();
+}
 
 function getCompURL(site, zip, beds) {
   const z = zip || '55345';
@@ -2927,7 +3085,7 @@ function renderLines(id, items) {
   }).join('');
 }
 
-/* ═══ MN HOMESTEAD-AWARE PROPERTY TAX (v7.0) ═══
+/* ═══ MN HOMESTEAD-AWARE PROPERTY TAX (v7.1) ═══
    Per MN Stat. 273.13. Duplex/triplex: whole property homestead.
    Quad: only owner unit share homesteaded.
    2026 composite local rates (verify annually).
@@ -2955,7 +3113,7 @@ function mnPropertyTaxAnnual(price, n, ownerOccupied, county) {
   return taxCapacity * localRate;
 }
 
-/* ═══ FHA SELF-SUFFICIENCY TEST (v7.0) ═══
+/* ═══ FHA SELF-SUFFICIENCY TEST (v7.1) ═══
    Applies to 3-4 unit FHA only. Duplex exempt per HUD.
 */
 function computeFhaSst(n, loanType, gsi, piti, haircut) {
@@ -2986,6 +3144,9 @@ function computeFhaSst(n, loanType, gsi, piti, haircut) {
 function calc() {
   const n = parseInt($('propType').value);
   const price = getNum('purchasePrice');
+  // Show triage row once a price is entered
+  const triageRow = $('triageRow');
+  if (triageRow) triageRow.style.display = price > 0 ? '' : 'none';
   const repairs = getNum('repairCost');
   const loanType = $('loanType').value;
   const annualRate = getNum('rate') / 100;
@@ -3006,12 +3167,13 @@ function calc() {
   const mgmtRate = getNum('mgmtRate') / 100;
   const ownerUnitUtil = getNum('ownerUnitUtilitiesMonthly');
   const mnCounty = ($('mnCounty') || {}).value || 'hennepin';
-  const sstHaircut = 0.75;
+  const sstHaircut = getNum('sstHaircutInput') || 0.75;
 
   // Rents + Other Income
   const rents = [];
   for (let i = 0; i < n; i++) rents.push(getNum(`rent${i}`));
   const otherIncome = getNum('otherIncome');
+  const unitRentTotal = rents.reduce((a,b) => a+b, 0); // FHA SST base — market rent only, excludes other income
   const gsi = rents.reduce((a,b) => a+b, 0) + otherIncome;
   const tenantRents = rents.filter((_,i) => i !== ownerUnit);
   const tenantGSI = tenantRents.reduce((a,b) => a+b, 0);
@@ -3031,7 +3193,7 @@ function calc() {
     pi = loanAmt * (monthlyRate * f) / (f - 1);
   }
 
-  // MN homestead-aware tax (v7.0) — uses user input if nonzero, else auto-calculates
+  // MN homestead-aware tax (v7.1) — uses user input if nonzero, else auto-calculates
   const autoTax = price > 0 ? mnPropertyTaxAnnual(price, n, ownerUnit >= 0 && ownerUnit < n, mnCounty) : annualTax;
   const effectiveAnnualTax = annualTax > 0 ? annualTax : autoTax;
   const monthlyTax = effectiveAnnualTax / 12;
@@ -3059,7 +3221,7 @@ function calc() {
 
   // ✅ FIX: Cap Rate annualized (was monthly — critical bug in v2)
   const capRate = price > 0 ? (noi * 12) / price : 0;
-  // Reserves for Cash-to-Close (v7.0) — FHA duplex 1mo, FHA 3-4 unit 3mo, conventional/DSCR 6mo
+  // Reserves for Cash-to-Close (v7.1) — FHA duplex 1mo, FHA 3-4 unit 3mo, conventional/DSCR 6mo
   const reserveMonths = loanType === 'fha' && n <= 2 ? 1 : loanType === 'fha' ? 3 : 6;
   const reservesAmt = piti * reserveMonths;
   const totalCashIn = downPayment + closingCosts + repairs + reservesAmt;
@@ -3079,7 +3241,10 @@ function calc() {
   const acqCost = price + repairs;
   const onePctRatio = acqCost > 0 ? gsi / acqCost : 0;
   const s1pct = onePctRatio >= 0.01 ? 'pass' : onePctRatio >= 0.0075 ? 'warn' : 'fail';
-  const noi50 = gsi * 0.50;
+  const MN_COUNTIES = ['hennepin','ramsey','dakota','anoka','washington','scott','carver'];
+  const isMN = MN_COUNTIES.includes(mnCounty);
+  const fiftyRuleRatio = isMN ? (utilities > 150 ? 0.60 : 0.55) : 0.50;
+  const noi50 = gsi * fiftyRuleRatio;
   const cf50 = noi50 - pi;
   const s50 = cf50 >= 0 ? 'pass' : 'fail';
   const sGrm = grm > 0 && grm <= 10 ? 'pass' : grm <= 15 ? 'warn' : 'fail';
@@ -3102,6 +3267,8 @@ function calc() {
     </div>`;
 
   // ── Scenario B: Move-Out ──
+  const bStatus = scenarioBStatus(cf);
+  const bGap = cf - RPC_V2.scenarioBTarget;
   const expRatio = egi > 0 ? opexTotal / egi : 0;
   const rentLabel = otherIncome > 0 ? `Total Income (rent + ${fmt(otherIncome)} other)` : 'Total Rent (all units)';
   renderLines('sb-lines', [
@@ -3113,13 +3280,14 @@ function calc() {
     { label: 'Fixed Expenses', value: -fixedExp, neg: true },
     { label: `NOI (${(expRatio*100).toFixed(0)}% expense ratio)`, value: noi, sub: true, ...(noi >= 0 ? {pos:true} : {neg:true}) },
     { label: 'Mortgage + Mortgage Ins.', value: -(pi+mip), neg: true },
-    { label: 'Net Cash Flow', value: cf, total: true, ...(cf >= 0 ? {pos:true} : {neg:true}) },
+    { label: 'Net Cash Flow', value: cf, total: true, ...(cf >= RPC_V2.scenarioBTarget ? {pos:true} : {neg:true}) },
+    { label: `Gap to RPC v2 target (${fmt(RPC_V2.scenarioBTarget)})`, value: bGap, ...(bGap >= 0 ? {pos:true} : {neg:true}) },
   ]);
   $('sb-hero').textContent = fmt(cf);
-  $('sb-hero').className = `scen-hero ${cf >= 0 ? 'pos' : 'neg'}`;
-  const sBpass = cf >= 0 ? 'pass' : 'fail';
+  $('sb-hero').className = `scen-hero ${bStatus === 'fail' ? 'neg' : 'pos'}`;
+  const sBpass = bStatus;
   $('sb-badge').className = `scen-badge ${sBpass}`;
-  $('sb-badge').textContent = cf >= 0 ? '✓ PASS' : '✗ FAIL';
+  $('sb-badge').textContent = bStatus === 'pass' ? '✓ TARGET' : bStatus === 'warn' ? '⚠ WEAK' : '✗ FAIL';
 
   // ── Scenario A: Live-In ──
   // ✅ FIX: Include owner's share of utilities & snow
@@ -3133,6 +3301,8 @@ function calc() {
   const netOffset = tEGI - tOpexVar - tFixedPro;
   const ownerUtilShare = (utilities + snow) * (1 / n);
   const netHousing = piti + ownerUtilShare - netOffset;
+  const aBand = scenarioABand(netHousing);
+  const aStatus = aBand === 'clean' ? 'pass' : aBand === 'weak' ? 'warn' : 'fail';
 
   renderLines('sa-lines', [
     { label: 'Your PITI', value: -piti, neg: true },
@@ -3142,27 +3312,29 @@ function calc() {
     { label: `Maintenance + CapEx`, value: -(tenantGSIFull*(maintRate+capexRate)), neg: true },
     { label: 'Prorated fixed costs', value: -tFixedPro, neg: true },
     { label: 'Net Tenant Offset', value: netOffset, sub: true, ...(netOffset >= 0 ? {pos:true} : {neg:true}) },
-    { label: 'Your Housing Cost', value: netHousing, total: true, ...(netHousing <= comfortCap ? {pos:true} : {neg:true}) },
+    { label: 'Live-In Housing Cost (no reserves)', value: netHousing, total: true, ...(aBand === 'fail' ? {neg:true} : {pos:true}) },
+    { label: `vs clean target (${fmt(RPC_V2.scenarioAClean)})`, value: RPC_V2.scenarioAClean - netHousing, ...(netHousing <= RPC_V2.scenarioAClean ? {pos:true} : {neg:true}) },
   ]);
   $('sa-hero').textContent = fmt(netHousing);
-  $('sa-hero').className = `scen-hero ${netHousing <= comfortCap ? 'pos' : 'neg'}`;
-  $('sa-cap').textContent = `vs. ${fmt(comfortCap)} budget — must be ≤`;
-  const sApass = netHousing <= comfortCap ? 'pass' : 'fail';
+  $('sa-hero').className = `scen-hero ${aBand === 'fail' ? 'neg' : 'pos'}`;
+  $('sa-cap').textContent = `clean ≤ ${fmt(RPC_V2.scenarioAClean)} · weak to ${fmt(RPC_V2.scenarioACeiling)} ceiling`;
+  const sApass = aStatus;
   $('sa-badge').className = `scen-badge ${sApass}`;
-  $('sa-badge').textContent = netHousing <= comfortCap ? '✓ PASS' : '✗ FAIL';
+  $('sa-badge').textContent = aBand === 'clean' ? '✓ CLEAN' : aBand === 'weak' ? '⚠ WEAK' : '✗ FAIL';
 
-  // True Housing Cost (Y1) — Trench/Curelop metric (v7.0)
-  // PITI + owner unit utilities (heat/elec/water) minus net tenant offset
-  const thc = piti + ownerUnitUtil - netOffset;
+  // True Housing Cost (Y1) — Trench/Curelop metric (v7.1)
+  // PITI + owner unit utilities + monthly reserves accrual − net tenant offset
+  const thc = piti + ownerUnitUtil + (reservesAmt / 12) - netOffset;
 
-  // ── Returns & FHA ──
-  const fha75 = gsi * 0.75;
-  const fhaPasses = fha75 >= piti;
-  const fhaRequired = n >= 3 && loanType === 'fha';
+  // ── Returns & FHA ── (v7.3: single SST source of truth — configurable haircut, market rent only)
+  const fhaSst = computeFhaSst(n, loanType, unitRentTotal, piti, sstHaircut);
+  const fhaRequired = fhaSst.applicable;
+  const fhaPasses = fhaSst.pass;
+  const fhaNet = fhaRequired ? fhaSst.netRent : 0;
   let sFha = 'skip', fhaText = 'N/A — not required';
   if (fhaRequired) {
     sFha = fhaPasses ? 'pass' : 'fail';
-    fhaText = fhaPasses ? `✓ ${fmt(fha75)} ≥ ${fmt(piti)}` : `✗ ${fmt(fha75)} < ${fmt(piti)} — switch to conventional`;
+    fhaText = fhaPasses ? `✓ ${fmt(fhaNet)} ≥ ${fmt(piti)}` : `✗ ${fmt(fhaNet)} < ${fmt(piti)} — switch to conventional`;
   }
 
   $('returnCards').innerHTML = `
@@ -3183,7 +3355,7 @@ function calc() {
     </div>
     <div class="metric">
       <div class="metric-name">FHA Self-Sufficiency <span class="gate-pill ${sFha === 'pass' ? 'pass' : sFha === 'fail' ? 'fail' : 'skip'}" style="font-size:9px;padding:2px 6px;">${sFha === 'pass' ? 'PASS' : sFha === 'fail' ? 'FAIL' : 'N/A'}</span></div>
-      <div class="metric-formula">75% of Total Rent ≥ PITI</div>
+      <div class="metric-formula">${Math.round(sstHaircut*100)}% of market rent ≥ PITI (3–4 unit FHA only)</div>
       <div class="metric-val" style="font-size:13px;color:${sFha === 'pass' ? 'var(--green)' : sFha === 'fail' ? 'var(--red)' : 'var(--text4)'}">${fhaText}</div>
     </div>`;
 
@@ -3216,27 +3388,52 @@ function calc() {
   const deployed = downPayment + closingCosts + repairs;
   const remaining = totalCash - deployed;
   const capitalOK = remaining >= minReserve;
-  const sCapital = capitalOK ? 'pass' : 'fail';
+  const maxSellerCredit = price * (loanType === 'fha' ? 0.06 : 0.03);
+  const cashNoCredits = totalCashIn;
+  const cashWithCredits = Math.max(0, cashNoCredits - maxSellerCredit);
+  const cashBand = cashToCloseBand(cashNoCredits, cashWithCredits);
+  const sCapital = cashBandStatus(cashBand);
   const fillPct = Math.min(deployed / Math.max(totalCash, 1) * 100, 100);
 
   $('capBuckets').innerHTML = `
     <div class="cap-b"><div class="cb-lbl">Down Payment</div><div class="cb-val" style="color:var(--accent)">${fmt(downPayment)}</div><div class="cb-sub">${(downPct*100).toFixed(1)}%</div></div>
     <div class="cap-b"><div class="cb-lbl">Closing</div><div class="cb-val" style="color:var(--accent)">${fmt(closingCosts)}</div><div class="cb-sub">${(closingPct*100).toFixed(1)}% of loan</div></div>
     <div class="cap-b"><div class="cb-lbl">Repairs</div><div class="cb-val" style="color:${repairs > 8000 ? 'var(--red)' : 'var(--amber)'}">${fmt(repairs)}</div><div class="cb-sub">${repairs > 8000 ? 'Over $8k!' : 'Within limit'}</div></div>
-    <div class="cap-b"><div class="cb-lbl">Reserves Left</div><div class="cb-val" style="color:${capitalOK ? 'var(--green)' : 'var(--red)'}">${fmt(remaining)}</div><div class="cb-sub">Need ${fmt(minReserve)}</div></div>`;
+    <div class="cap-b"><div class="cb-lbl">Cash Gate</div><div class="cb-val" style="color:${cashBand === 'clean' ? 'var(--green)' : cashBand === 'fail' ? 'var(--red)' : 'var(--amber)'}">${cashBandLabel(cashBand)}</div><div class="cb-sub">${fmt(RPC_V2.cashPreferred)} preferred / ${fmt(RPC_V2.cashCeiling)} ceiling</div></div>`;
   $('capFill').style.width = fillPct + '%';
-  $('capFill').style.background = capitalOK ? 'var(--green)' : 'var(--red)';
+  $('capFill').style.background = sCapital === 'pass' ? 'var(--green)' : sCapital === 'warn' ? 'var(--amber)' : 'var(--red)';
   $('capFooter').innerHTML = `
-    <div><div class="cfi-lbl">Total Deployed</div><div class="cfi-val">${fmt(deployed)}</div></div>
-    <div><div class="cfi-lbl">Remaining</div><div class="cfi-val" style="color:${capitalOK ? 'var(--green)' : 'var(--red)'}">${fmt(remaining)}</div></div>
-    <div><div class="cfi-lbl">Minimum Required</div><div class="cfi-val">${fmt(minReserve)}</div></div>`;
+    <div><div class="cfi-lbl">Cash Required</div><div class="cfi-val">${fmt(cashNoCredits)}</div></div>
+    <div><div class="cfi-lbl">With Max Credits</div><div class="cfi-val" style="color:${cashWithCredits <= RPC_V2.cashCeiling ? 'var(--green)' : 'var(--red)'}">${fmt(cashWithCredits)}</div></div>
+    <div><div class="cfi-lbl">Cushion After Deployed</div><div class="cfi-val" style="color:${capitalOK ? 'var(--green)' : 'var(--red)'}">${fmt(remaining)}</div></div>`;
+
+  // v7.3: band-aware cash-to-close guidance (reinforces that $25k–$35k is a ceiling, not "easy")
+  const capNoteEl = $('capNote');
+  if (capNoteEl) {
+    const noteMap = {
+      clean: { txt: `✓ Clean capital fit — cash-to-close at or under ${fmt(RPC_V2.cashPreferred)}.`, bg: 'var(--surface2)', col: 'var(--text2)' },
+      cash_heavy: { txt: `⚠ Affordable but cash-heavy (${fmt(RPC_V2.cashPreferred)}–${fmt(RPC_V2.cashCeiling)}). This is a ceiling, not "easy." Verify lender cash-to-close in writing and preserve post-close reserves.`, bg: '#fff8e6', col: '#92560a' },
+      concession_dependent: { txt: `⚠ Only fits with max seller credits (${loanType === 'fha' ? '6%' : '3%'}). Without concessions you're over the ${fmt(RPC_V2.cashCeiling)} gate. Confirm the seller will actually give credits before counting on this.`, bg: '#fff8e6', col: '#92560a' },
+      manual_review: { txt: `⚠ Stretch / manual review — even with max credits this exceeds ${fmt(RPC_V2.cashCeiling)} (up to ${fmt(RPC_V2.cashManualReview)}). Only proceed if you're deliberately overriding the capital gate.`, bg: '#fff0f0', col: 'var(--red)' },
+      fail: { txt: `✗ Capital gate fail — cash-to-close exceeds ${fmt(RPC_V2.cashManualReview)} even with max credits. Walk unless you manually override.`, bg: '#fff0f0', col: 'var(--red)' },
+    };
+    const note = noteMap[cashBand];
+    if (note && price > 0) {
+      capNoteEl.textContent = note.txt;
+      capNoteEl.style.background = note.bg;
+      capNoteEl.style.color = note.col;
+      capNoteEl.style.display = '';
+    } else {
+      capNoteEl.style.display = 'none';
+    }
+  }
 
   // ── Verdict ──
   const checks = [
     { label: '1% Rule', status: s1pct, note: fmtPct(onePctRatio), critical: false },
     { label: '50% Rule', status: s50, note: fmt(cf50)+'/mo', critical: false },
-    { label: 'Scenario A', status: sApass, note: fmt(netHousing)+'/mo', critical: false },
-    { label: 'Scenario B ●', status: sBpass, note: fmt(cf)+'/mo', critical: true },
+    { label: 'Scenario A', status: sApass, note: fmt(netHousing)+'/mo', critical: aBand === 'fail' },
+    { label: 'Scenario B ●', status: sBpass, note: fmt(cf)+'/mo', critical: sBpass === 'fail' },
     { label: 'Stress Test ●', status: sStress, note: fmt(stressCF)+'/mo', critical: true },
     { label: 'Capital ●', status: sCapital, note: fmt(remaining)+' left', critical: true },
     ...(fhaRequired ? [{ label: 'FHA Test', status: sFha, note: sFha === 'pass' ? 'OK' : 'FAIL', critical: false }] : []),
@@ -3268,89 +3465,32 @@ function calc() {
     vd.textContent = `${critFails} critical test(s) failed. The math says walk away or submit an offer at the MAO price below — not the asking price.`;
   }
 
-  // ── Quick Glance Card (v7.0) ──
+  // ── MAO (computed before review bucket so PRICE_DROP_WATCH gap is real) ──
+  const tenantOI = otherIncome * (tenantRents.length / n);
+  const maoResult = calcMAO({ n, gsi, tenantGSI, tenantOI, tenantRents, ownerUnit, vacRate, maintRate, capexRate, mgmtRate,
+    fixedExp, monthlyTax, monthlyIns, utilities, snow, monthlyRate, term, loanType, downPct, closingPct,
+    comfortCap, totalCash, repairs, livingExp, price, fhaRequired, sstHaircut });
+
+  renderReviewBucket({
+    price,
+    gsi,
+    aBand,
+    bStatus,
+    stressPass: stressCF >= 0,
+    cashBand,
+    fhaFail: fhaRequired && !fhaPasses,
+    maoGapPct: maoResult ? maoResult.gapPct : 0,
+  });
+
+  // ── Quick Glance Card (v7.1) ──
   {
-    // FHA SST via proper function (uses sstHaircut = 0.75)
-    const fhaSst = computeFhaSst(n, loanType, gsi, piti, sstHaircut);
-
-    // Header row
     const addrVal = ($('address') || {}).value || '';
-    $('glance-addr').textContent = addrVal.trim() || 'Enter address above';
-    $('glance-meta').textContent = (n === 2 ? 'Duplex' : n === 3 ? 'Triplex' : 'Fourplex') +
-      (ownerUnit >= 0 ? ' \u00b7 Owner: Unit ' + (ownerUnit + 1) : '');
-    $('glance-price').textContent = price > 0 ? '$' + Math.round(price).toLocaleString() : '\u2014';
-
-    // TRUE HOUSING COST (Y1)
-    const thcColor = thc <= 0 ? 'var(--green)' : thc <= 300 ? 'var(--amber)' : 'var(--red)';
-    $('glance-thc-value').textContent = fmt(thc) + '/mo';
-    $('glance-thc-value').style.color = thcColor;
-    if (thc <= 0) {
-      $('glance-thc-explain').textContent = 'Cash-flowing while living free \u2014 the Trench ideal';
-    } else if (thc <= comfortCap) {
-      $('glance-thc-explain').textContent = '$' + Math.round(thc).toLocaleString() + '/mo out-of-pocket \u2014 still beats renting';
-    } else {
-      $('glance-thc-explain').textContent = '$' + Math.round(thc).toLocaleString() + '/mo \u2014 over your comfort cap';
-    }
-
-    // Y2 CASH FLOW (Scenario B = all units rented)
-    const y2cfColor = cf >= 200 ? 'var(--green)' : cf >= 0 ? 'var(--amber)' : 'var(--red)';
-    $('glance-y2cf-value').textContent = fmt(cf) + '/mo';
-    $('glance-y2cf-value').style.color = y2cfColor;
-
-    // Y2 COC (with reserves in denominator)
-    const cocColor = coc >= 0.10 ? 'var(--green)' : coc >= 0.06 ? 'var(--amber)' : 'var(--red)';
-    $('glance-y2coc-value').textContent = fmtPct(coc);
-    $('glance-y2coc-value').style.color = cocColor;
-
-    // LENDER GATES: DSCR + FHA SST
-    const dscrColor = dscr >= 1.25 ? 'var(--green)' : dscr >= 1.0 ? 'var(--amber)' : 'var(--red)';
-    let gatesHTML = '<div style="color:' + dscrColor + ';font-family:var(--mono);font-weight:600;">DSCR ' + dscr.toFixed(2) + 'x</div>';
-    if (fhaSst.applicable) {
-      const sstColor = fhaSst.pass ? 'var(--green)' : 'var(--red)';
-      gatesHTML += '<div style="color:' + sstColor + ';font-size:11px;margin-top:2px;">SST: ' + fhaSst.label + '</div>';
-    } else {
-      gatesHTML += '<div style="color:var(--text4);font-size:11px;margin-top:2px;">SST: N/A (duplex)</div>';
-    }
-    $('glance-gates-value').innerHTML = gatesHTML;
-
-    // SANITY CHECKS
-    $('s-1pct').textContent = fmtPct(onePctRatio);
-    $('s-1pct').style.color = s1pct === 'pass' ? 'var(--green)' : s1pct === 'warn' ? 'var(--amber)' : 'var(--red)';
-    $('s-50pct').textContent = fmt(cf50) + '/mo';
-    $('s-50pct').style.color = cf50 >= 0 ? 'var(--green)' : 'var(--red)';
-    $('s-cap').textContent = fmtPct(capRate);
-    $('s-cap').style.color = capRate >= 0.06 ? 'var(--green)' : capRate >= 0.04 ? 'var(--amber)' : 'var(--red)';
-    $('s-grm').textContent = grm.toFixed(1) + 'x';
-    $('s-grm').style.color = sGrm === 'pass' ? 'var(--green)' : sGrm === 'warn' ? 'var(--amber)' : 'var(--red)';
-    const rentFactor = (1 - vacRate) - (maintRate + capexRate + mgmtRate);
-    const beRent = rentFactor > 0 ? (fixedExp + pi + mip) / rentFactor : 0;
-    $('s-be').textContent = fmt(beRent);
-    $('s-be').style.color = gsi >= beRent ? 'var(--green)' : 'var(--red)';
-
-    // VERDICT
-    let glanceVerdict = '';
-    let glanceVerdictColor = 'var(--text2)';
-    if (fhaSst.applicable && !fhaSst.pass) {
-      glanceVerdict = 'FHA won\'t approve \u2014 SST fails by $' + Math.abs(Math.round(fhaSst.margin)) + '/mo. Consider conventional or higher rents.';
-      glanceVerdictColor = 'var(--red)';
-    } else if (thc <= 0 && coc >= 0.10) {
-      glanceVerdict = 'Strong deal \u2014 live free Y1, ' + (coc * 100).toFixed(1) + '% CoC at Y2.';
-      glanceVerdictColor = 'var(--green)';
-    } else if (thc <= 0) {
-      glanceVerdict = 'Live-free deal \u2014 housing cost eliminated. CoC at Y2: ' + (coc * 100).toFixed(1) + '%.';
-      glanceVerdictColor = 'var(--green)';
-    } else if (thc <= 300 && coc >= 0.08) {
-      glanceVerdict = 'Marginal house hack \u2014 $' + Math.round(thc) + '/mo Y1 cost, but ' + (coc * 100).toFixed(1) + '% CoC once you move out.';
-      glanceVerdictColor = 'var(--amber)';
-    } else if (thc > 500) {
-      glanceVerdict = 'Expensive \u2014 $' + Math.round(thc) + '/mo out-of-pocket. Better deals exist unless forced-appreciation angle.';
-      glanceVerdictColor = 'var(--red)';
-    } else {
-      glanceVerdict = 'Run full analysis \u2014 check rent comps and compare to 2 other deals.';
-      glanceVerdictColor = 'var(--text2)';
-    }
-    $('glance-verdict').textContent = glanceVerdict;
-    $('glance-verdict').style.color = glanceVerdictColor;
+    updateQuickGlance({
+      n, loanType, gsi, piti, cf, coc, dscr, thc, comfortCap, fhaSst,
+      price, address: addrVal, ownerUnit,
+      onePctRatio, s1pct: s1pct, cf50, capRate, grm, sGrm,
+      fixedExp, pi, mip, vacRate, maintRate, capexRate, mgmtRate
+    });
   }
 
   // ── Pro Forma Cap Rate + Initial Equity (added to returns card) ──
@@ -3452,17 +3592,17 @@ function calc() {
   renderCFChart(aotData);
   renderEquityChart(aotData);
 
-  // ── MAO ──
-  const tenantOI = otherIncome * (tenantRents.length / n);
-  calcMAO({ n, gsi, tenantGSI, tenantOI, tenantRents, ownerUnit, vacRate, maintRate, capexRate, mgmtRate,
-    fixedExp, monthlyTax, monthlyIns, utilities, snow, monthlyRate, term, loanType, downPct, closingPct,
-    comfortCap, totalCash, repairs, livingExp, price, fhaRequired });
+  saveSession();
 }
 
 /* ═══ MAO SOLVER ═══ */
 function calcMAO(o) {
-  const targetCF = getNum('targetCF');
+  // v7.3: empty targetCF → RPC v2 default (150); explicit 0 stays 0
+  const tcfRaw = ($('targetCF') || {}).value;
+  const targetCF = (tcfRaw == null || String(tcfRaw).trim() === '') ? RPC_V2.scenarioBTarget : (parseFloat(tcfRaw) || 0);
+  const stressTargetCF = 0;
   const targetCoCR = getNum('targetCoCR') / 100;
+  const sstHaircut = (o.sstHaircut && o.sstHaircut > 0) ? o.sstHaircut : 0.75;
 
   let α = 0;
   if (o.monthlyRate > 0 && o.term > 0) {
@@ -3481,12 +3621,18 @@ function calcMAO(o) {
   const ownerShare = (o.utilities + o.snow) / o.n;
 
   const MAO_B = dpd > 0 ? (K - targetCF) / dpd : Infinity;
-  const MAO_S = dpd > 0 ? (SK - targetCF) / dpd : Infinity;
-  const MAO_A = dpd > 0 ? (o.comfortCap - fpiti - ownerShare + tOff) / dpd : Infinity;
+  const MAO_S = dpd > 0 ? (SK - stressTargetCF) / dpd : Infinity;
+  // v7.3: Scenario A solved against BOTH the clean target ($2,600) and the pain ceiling ($3,200).
+  // The clean target binds the headline MAO so TOP_REVIEW never rests on the ceiling.
+  const aClean = RPC_V2.scenarioAClean;
+  const aCeiling = RPC_V2.scenarioACeiling;
+  const MAO_A_clean = dpd > 0 ? (aClean - fpiti - ownerShare + tOff) / dpd : Infinity;
+  const MAO_A_ceiling = dpd > 0 ? (aCeiling - fpiti - ownerShare + tOff) / dpd : Infinity;
   const capNum = o.totalCash - o.repairs - (fpiti + o.livingExp) * 3;
   const capDen = df + 3 * dpd;
   const MAO_C = capDen > 0 ? capNum / capDen : Infinity;
-  const MAO_F = (o.fhaRequired && dpd > 0) ? (o.gsi * 0.75 - fpiti) / dpd : Infinity;
+  // v7.3: FHA SST uses the configurable haircut (single source of truth via o.sstHaircut)
+  const MAO_F = (o.fhaRequired && dpd > 0) ? (o.gsi * sstHaircut - fpiti) / dpd : Infinity;
 
   // CoCR constraint: (12×CF) / totalCashIn ≥ targetCoCR
   const cocNum = 12 * K - targetCoCR * o.repairs;
@@ -3495,18 +3641,23 @@ function calcMAO(o) {
 
   const constraints = [
     { id: 'b', label: 'Scenario B', value: MAO_B, note: `CF ≥ ${fmt(targetCF)}/mo`, active: true },
-    { id: 's', label: 'Stress Test', value: MAO_S, note: `Stressed CF ≥ ${fmt(targetCF)}`, active: true },
-    { id: 'a', label: 'Scenario A', value: MAO_A, note: `Housing ≤ ${fmt(o.comfortCap)}`, active: true },
+    { id: 's', label: 'Stress Test', value: MAO_S, note: `Stressed CF ≥ ${fmt(stressTargetCF)}`, active: true },
+    { id: 'a', label: 'Scenario A (clean)', value: MAO_A_clean, note: `Housing ≤ ${fmt(aClean)} clean target`, active: true },
+    { id: 'ac', label: 'Scenario A (ceiling)', value: MAO_A_ceiling, note: `Housing ≤ ${fmt(aCeiling)} pain ceiling`, active: true },
     { id: 'c', label: 'Capital Gate', value: MAO_C, note: 'Reserves ≥ 3mo', active: true },
-    { id: 'f', label: 'FHA Test', value: MAO_F, note: '75% rent ≥ PITI', active: o.fhaRequired },
+    { id: 'f', label: `FHA Test (${Math.round(sstHaircut*100)}%)`, value: MAO_F, note: `${Math.round(sstHaircut*100)}% rent ≥ PITI`, active: o.fhaRequired },
     { id: 'r', label: `CoCR ≥ ${fmtPct(targetCoCR)}`, value: MAO_R, note: 'Yield target', active: targetCoCR > 0 },
   ];
 
+  // Headline MAO binds on the CLEAN Scenario A target, not the ceiling.
+  // The ceiling line ('ac') is informational only — it never tightens the main MAO.
   const active = constraints.filter(c => c.active && isFinite(c.value));
-  const mao = active.length > 0 ? Math.min(...active.map(c => c.value)) : NaN;
-  const binding = active.find(c => Math.abs(c.value - mao) < 0.01);
+  const binders = active.filter(c => c.id !== 'ac');
+  const mao = binders.length > 0 ? Math.min(...binders.map(c => c.value)) : NaN;
+  const binding = binders.find(c => Math.abs(c.value - mao) < 0.01);
   const delta = mao - o.price;
   const ok = delta >= 0;
+  const gapPct = (isFinite(mao) && mao > 0 && o.price > 0) ? (o.price - mao) / o.price : 0;
   const col = !isFinite(mao) || mao <= 0 ? '' : ok ? 'pass' : 'fail';
 
   $('maoBar').className = `mao-bar ${col}`;
@@ -3524,7 +3675,22 @@ function calcMAO(o) {
     $('maoDeltaNote').textContent = '';
   }
 
-  // Update Quick Glance MAO delta (v7.0)
+  // v7.3: plain-English MAO sentence for lender/agent conversations
+  const sentenceEl = $('maoSentence');
+  if (sentenceEl) {
+    if (isFinite(mao) && mao > 0 && o.price > 0) {
+      const wall = binding ? binding.label : 'core math';
+      sentenceEl.textContent = ok
+        ? `At ${fmt(o.price)}, the deal already clears every test (binding wall: ${wall}). You have about ${fmt(Math.abs(delta))} of cushion below the max workable price of ${fmt(mao)}.`
+        : `At ${fmt(o.price)}, the deal misses by ${fmt(Math.abs(delta))}. The current wall is ${wall}. A workable offer is around ${fmt(mao)}.`;
+      sentenceEl.style.display = '';
+    } else {
+      sentenceEl.textContent = '';
+      sentenceEl.style.display = 'none';
+    }
+  }
+
+  // Update Quick Glance MAO delta (v7.1)
   const gmaoEl = $('glance-mao-value');
   if (gmaoEl) {
     if (isFinite(mao) && mao > 0 && o.price > 0) {
@@ -3547,6 +3713,81 @@ function calcMAO(o) {
       <div class="mao-c-delta ${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} vs asking</div>
     </div>`;
   }).join('');
+
+  return { mao, delta, gapPct, binding: binding ? binding.label : null, ok };
+}
+
+/* ═══ QUICK GLANCE DOM UPDATE — shared by calc() and rapidCalc() ═══ */
+function updateQuickGlance(ctx) {
+  const { n, loanType, gsi, piti, cf, coc, dscr, thc, comfortCap, fhaSst,
+    price, address, ownerUnit, onePctRatio, s1pct, cf50, capRate, grm, sGrm,
+    fixedExp, pi, mip, vacRate, maintRate, capexRate, mgmtRate } = ctx;
+
+  $('glance-addr').textContent = (address || '').trim() || 'Enter address above';
+  $('glance-meta').textContent = (n === 2 ? 'Duplex' : n === 3 ? 'Triplex' : 'Fourplex') +
+    (ownerUnit >= 0 ? ' · Owner: Unit ' + (ownerUnit + 1) : '');
+  $('glance-price').textContent = price > 0 ? '$' + Math.round(price).toLocaleString() : '—';
+
+  const thcColor = thc <= 0 ? 'var(--green)' : thc <= 300 ? 'var(--amber)' : 'var(--red)';
+  $('glance-thc-value').textContent = fmt(thc) + '/mo';
+  $('glance-thc-value').style.color = thcColor;
+  if (thc <= 0) {
+    $('glance-thc-explain').textContent = 'Cash-flowing while living free — the Trench ideal';
+  } else if (thc <= comfortCap) {
+    $('glance-thc-explain').textContent = '$' + Math.round(thc).toLocaleString() + '/mo out-of-pocket — still beats renting';
+  } else {
+    $('glance-thc-explain').textContent = '$' + Math.round(thc).toLocaleString() + '/mo — over your comfort cap';
+  }
+
+  $('glance-y2cf-value').textContent = fmt(cf) + '/mo';
+  $('glance-y2cf-value').style.color = cf >= RPC_V2.scenarioBTarget ? 'var(--green)' : cf >= 0 ? 'var(--amber)' : 'var(--red)';
+
+  $('glance-y2coc-value').textContent = fmtPct(coc);
+  $('glance-y2coc-value').style.color = coc >= 0.10 ? 'var(--green)' : coc >= 0.06 ? 'var(--amber)' : 'var(--red)';
+
+  const dscrColor = dscr >= 1.25 ? 'var(--green)' : dscr >= 1.0 ? 'var(--amber)' : 'var(--red)';
+  let gatesHTML = '<div style="color:' + dscrColor + ';font-family:var(--mono);font-weight:600;">DSCR ' + dscr.toFixed(2) + 'x</div>';
+  if (fhaSst.applicable) {
+    gatesHTML += '<div style="color:' + (fhaSst.pass ? 'var(--green)' : 'var(--red)') + ';font-size:11px;margin-top:2px;">SST: ' + fhaSst.label + '</div>';
+  } else {
+    gatesHTML += '<div style="color:var(--text4);font-size:11px;margin-top:2px;">SST: N/A (duplex)</div>';
+  }
+  $('glance-gates-value').innerHTML = gatesHTML;
+
+  $('s-1pct').textContent = fmtPct(onePctRatio);
+  $('s-1pct').style.color = s1pct === 'pass' ? 'var(--green)' : s1pct === 'warn' ? 'var(--amber)' : 'var(--red)';
+  $('s-50pct').textContent = fmt(cf50) + '/mo';
+  $('s-50pct').style.color = cf50 >= 0 ? 'var(--green)' : 'var(--red)';
+  $('s-cap').textContent = fmtPct(capRate);
+  $('s-cap').style.color = capRate >= 0.06 ? 'var(--green)' : capRate >= 0.04 ? 'var(--amber)' : 'var(--red)';
+  $('s-grm').textContent = grm.toFixed(1) + 'x';
+  $('s-grm').style.color = sGrm === 'pass' ? 'var(--green)' : sGrm === 'warn' ? 'var(--amber)' : 'var(--red)';
+  const rentFactor = (1 - vacRate) - (maintRate + capexRate + mgmtRate);
+  const beRent = rentFactor > 0 ? (fixedExp + pi + mip) / rentFactor : 0;
+  $('s-be').textContent = fmt(beRent);
+  $('s-be').style.color = gsi >= beRent ? 'var(--green)' : 'var(--red)';
+
+  let glanceVerdict = '', glanceVerdictColor = 'var(--text2)';
+  if (fhaSst.applicable && !fhaSst.pass) {
+    glanceVerdict = 'FHA won\'t approve — SST fails by $' + Math.abs(Math.round(fhaSst.margin)) + '/mo. Consider conventional or higher rents.';
+    glanceVerdictColor = 'var(--red)';
+  } else if (thc <= 0 && coc >= 0.10) {
+    glanceVerdict = 'Strong deal — live free Y1, ' + (coc * 100).toFixed(1) + '% CoC at Y2.';
+    glanceVerdictColor = 'var(--green)';
+  } else if (thc <= 0) {
+    glanceVerdict = 'Live-free deal — housing cost eliminated. CoC at Y2: ' + (coc * 100).toFixed(1) + '%.';
+    glanceVerdictColor = 'var(--green)';
+  } else if (thc <= 300 && coc >= 0.08) {
+    glanceVerdict = 'Marginal house hack — $' + Math.round(thc) + '/mo Y1 cost, but ' + (coc * 100).toFixed(1) + '% CoC once you move out.';
+    glanceVerdictColor = 'var(--amber)';
+  } else if (thc > 500) {
+    glanceVerdict = 'Expensive — $' + Math.round(thc) + '/mo out-of-pocket. Better deals exist unless forced-appreciation angle.';
+    glanceVerdictColor = 'var(--red)';
+  } else {
+    glanceVerdict = 'Run full analysis — check rent comps and compare to 2 other deals.';
+  }
+  $('glance-verdict').textContent = glanceVerdict;
+  $('glance-verdict').style.color = glanceVerdictColor;
 }
 
 /* ─── Init ─── */
@@ -3561,7 +3802,7 @@ const DEFAULT_FIELDS = [
   'annualTax', 'annualIns', 'utilities', 'snow',
   'vacancyRate', 'maintRate', 'capexRate', 'mgmtRate',
   'comfortCap', 'totalCash', 'livingExp', 'zipCode',
-  'targetCF', 'targetCoCR',
+  'targetCF', 'targetCoCR', 'ownerUnitUtilitiesMonthly', 'sstHaircutInput',
   'aotIncGrowth', 'aotExpGrowth', 'aotAppreciation', 'aotSalesExp'
 ];
 
@@ -3583,6 +3824,15 @@ function loadDefaults() {
     const raw = localStorage.getItem('rpc-defaults');
     if (!raw) return false;
     const data = JSON.parse(raw);
+    // v7.3 one-time migration: pre-v7.3 saved defaults had targetCF default of 0 (breakeven).
+    // Bump a saved 0/empty to the RPC v2 target (150) once, unless the user already migrated.
+    if (!localStorage.getItem('rpc-defaults-v73')) {
+      if (data.targetCF === undefined || String(data.targetCF).trim() === '' || parseFloat(data.targetCF) === 0) {
+        data.targetCF = '150';
+      }
+      localStorage.setItem('rpc-defaults', JSON.stringify(data));
+      localStorage.setItem('rpc-defaults-v73', '1');
+    }
     DEFAULT_FIELDS.forEach(id => {
       const el = $(id);
       if (el && data[id] !== undefined) el.value = data[id];
@@ -3599,7 +3849,8 @@ function resetDefaults() {
     annualTax:'7200', annualIns:'2400', utilities:'150', snow:'100',
     vacancyRate:'7', maintRate:'8', capexRate:'8', mgmtRate:'8',
     comfortCap:'3200', totalCash:'60000', livingExp:'2000', zipCode:'55345',
-    targetCF:'0', targetCoCR:'0',
+    targetCF:'150', targetCoCR:'0',
+    ownerUnitUtilitiesMonthly:'280', sstHaircutInput:'0.75',
     aotIncGrowth:'2', aotExpGrowth:'2', aotAppreciation:'3', aotSalesExp:'8'
   };
   Object.entries(defaults).forEach(([id, val]) => {
@@ -3632,6 +3883,11 @@ function newDeal() {
   $('r-totalRent').value = '';
   const ra = $('r-address');
   if (ra) ra.value = '';
+
+  // Reset triage buttons
+  document.querySelectorAll('.triage-btn').forEach(btn => btn.classList.remove('active'));
+  const triageRow = $('triageRow');
+  if (triageRow) triageRow.style.display = 'none';
 
   // Switch to rapid mode for speed
   setMode('rapid');
@@ -3992,6 +4248,7 @@ function rapidCalc() {
     $('rapidResults').innerHTML = '';
     $('r-maoPrice').textContent = '—';
     $('r-maoDelta').textContent = 'Enter price and rent to calculate';
+    renderReviewBucket({ price, gsi, aBand: 'fail', bStatus: 'fail', stressPass: false, cashBand: 'fail', fhaFail: false, maoGapPct: 0 });
     return;
   }
 
@@ -4009,7 +4266,11 @@ function rapidCalc() {
     pi = loanAmt * (monthlyRate * f) / (f - 1);
   }
 
-  const monthlyTax = (annualTax * 1.07) / 12;
+  const mnCountyR = ($('mnCounty') || {}).value || 'hennepin';
+  const ownerOccupiedR = true; // v7.3: Rapid mode is by definition an owner-occupied 2–4 unit screen (incl. fourplex)
+  const computedTaxR = mnPropertyTaxAnnual(price, n, ownerOccupiedR, mnCountyR);
+  const effectiveTaxR = computedTaxR > 0 ? computedTaxR : annualTax;
+  const monthlyTax = effectiveTaxR / 12;
   const monthlyIns = annualIns / 12;
   const piti = pi + monthlyTax + monthlyIns + mip;
   const fixedExp = monthlyTax + monthlyIns + utilities + snow;
@@ -4020,33 +4281,44 @@ function rapidCalc() {
   const noi = egi - opexTotal;
   const cf = noi - pi - mip;
 
-  // 1% rule
+  // 1% rule (warn threshold aligned with Full mode: 0.0075)
   const onePctRatio = gsi / (price + repairs);
-  const s1 = onePctRatio >= 0.01 ? 'pass' : onePctRatio >= 0.007 ? 'warn' : 'fail';
+  const s1 = onePctRatio >= 0.01 ? 'pass' : onePctRatio >= 0.0075 ? 'warn' : 'fail';
 
-  // 50% rule
-  const cf50 = (gsi * 0.5) - pi;
+  // 50% rule (MN-adjusted, matches Full mode: 55% base / 60% if owner-paid utilities high)
+  const MN_COUNTIES50 = ['hennepin','ramsey','dakota','anoka','washington','scott','carver'];
+  const fiftyRule50 = MN_COUNTIES50.includes(mnCountyR) ? (utilities > 150 ? 0.60 : 0.55) : 0.50;
+  const cf50 = (gsi * fiftyRule50) - pi;
   const s50 = cf50 >= 0 ? 'pass' : 'fail';
 
-  // Scenario B
-  const sBpass = cf >= 0 ? 'pass' : 'fail';
+  // Scenario B (v7.3 bands: ≥+150 pass, 0–149 weak, <0 fail) — shared helper, same as Full
+  const sBpass = scenarioBStatus(cf);
 
-  // Stress
+  // Stress (survival target = $0, not +150)
   const stressCF = (egi * 0.90) - (opexTotal * 1.15) - pi - mip;
   const sStress = stressCF >= 0 ? 'pass' : 'fail';
 
-  // Capital
+  // Capital (v7.3: compute cash-to-close band like Full so the review bucket is consistent)
   const deployed = downPayment + (loanAmt * closingPct) + repairs;
   const remaining = totalCash - deployed;
   const minReserve = (piti + livingExp) * 3;
   const sCapital = remaining >= minReserve ? 'pass' : 'fail';
+  const reserveMonthsCash = loanType === 'fha' && n <= 2 ? 1 : loanType === 'fha' ? 3 : 6;
+  const cashNoCreditsR = downPayment + (loanAmt * closingPct) + repairs + (piti * reserveMonthsCash);
+  const maxSellerCreditR = price * (loanType === 'fha' ? 0.06 : 0.03);
+  const cashWithCreditsR = Math.max(0, cashNoCreditsR - maxSellerCreditR);
+  const cashBandR = cashToCloseBand(cashNoCreditsR, cashWithCreditsR);
 
-  // FHA
-  const fhaRequired = n >= 3 && loanType === 'fha';
-  const fha75 = gsi * 0.75;
-  const sFha = fhaRequired ? (fha75 >= piti ? 'pass' : 'fail') : 'skip';
+  // FHA SST (v7.3: shared helper + configurable haircut, same as Full)
+  const sstHaircutRapid = getNum('sstHaircutInput') || 0.75;
+  const fhaSstRapid = computeFhaSst(n, loanType, gsi, piti, sstHaircutRapid);
+  const fhaRequired = fhaSstRapid.applicable;
+  const sFha = fhaRequired ? (fhaSstRapid.pass ? 'pass' : 'fail') : 'skip';
 
-  // Rapid MAO (simplified — Scenario B and Stress as primary constraints)
+  // Rapid MAO (parity with Full: Scenario B solved at +targetCF, stress at $0 survival)
+  const tcfRawR = ($('targetCF') || {}).value;
+  const targetCFR = (tcfRawR == null || String(tcfRawR).trim() === '') ? RPC_V2.scenarioBTarget : (parseFloat(tcfRawR) || 0);
+  const stressTargetCFR = 0;
   let α = 0;
   if (monthlyRate > 0 && term > 0) {
     const f = Math.pow(1 + monthlyRate, term);
@@ -4061,8 +4333,8 @@ function rapidCalc() {
   const capNum = totalCash - repairs - (fpiti + livingExp) * 3;
   const capDen = df + 3 * dpd;
 
-  const maoB = dpd > 0 ? K / dpd : Infinity;
-  const maoS = dpd > 0 ? SK / dpd : Infinity;
+  const maoB = dpd > 0 ? (K - targetCFR) / dpd : Infinity;
+  const maoS = dpd > 0 ? (SK - stressTargetCFR) / dpd : Infinity;
   const maoC = capDen > 0 ? capNum / capDen : Infinity;
   const maoF = (fhaRequired && dpd > 0) ? (gsi * 0.75 - fpiti) / dpd : Infinity;
   const candidates = [maoB, maoS, maoC, maoF].filter(v => isFinite(v));
@@ -4072,8 +4344,8 @@ function rapidCalc() {
   $('rapidResults').innerHTML = `
     <div class="rapid-result">
       <div class="rr-label">Cash Flow</div>
-      <div class="rr-val" style="color:${cf >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(cf)}</div>
-      <div class="rr-sub">per month (Scenario B)</div>
+      <div class="rr-val" style="color:${sBpass === 'pass' ? 'var(--green)' : sBpass === 'warn' ? 'var(--amber)' : 'var(--red)'}">${fmt(cf)}</div>
+      <div class="rr-sub">${sBpass === 'pass' ? 'Pass (≥ +$150)' : sBpass === 'warn' ? 'Weak ($0–149)' : 'Fail (< $0)'} · Scenario B</div>
     </div>
     <div class="rapid-result">
       <div class="rr-label">1% Rule</div>
@@ -4135,6 +4407,48 @@ function rapidCalc() {
     vd.textContent = `${critFails} critical test(s) failed. The math says ${isFinite(mao) && mao > 0 ? 'offer at ' + fmt(mao) + ' max, or ' : ''}skip this deal.`;
   }
 
+  // ── Quick Glance update from Rapid mode ──
+  const ownerUnitUtilR = getNum('ownerUnitUtilitiesMonthly');
+  const reserveMonthsR = loanType === 'fha' && n <= 2 ? 1 : loanType === 'fha' ? 3 : 6;
+  const reservesAmtR = piti * reserveMonthsR;
+  const totalCashInR = downPayment + (loanAmt * closingPct) + repairs + reservesAmtR;
+  const cocR = totalCashInR > 0 ? (cf * 12) / totalCashInR : 0;
+  const annualDSR = (pi + mip) * 12;
+  const dscrR = annualDSR > 0 ? (noi * 12) / annualDSR : 0;
+  const capRateR = price > 0 ? (noi * 12) / price : 0;
+  const grmR = gsi > 0 ? price / (gsi * 12) : 0;
+  const sGrmR = grmR > 0 && grmR <= 10 ? 'pass' : grmR <= 15 ? 'warn' : 'fail';
+  const tenantShareR = n > 1 ? (n - 1) / n : 0;
+  const tenantGSIR = gsi * tenantShareR;
+  const netOffsetR = tenantGSIR * (1 - vacRate) - tenantGSIR * (maintRate + capexRate) - fixedExp * tenantShareR;
+  const thcR = piti + ownerUnitUtilR + (reservesAmtR / 12) - netOffsetR;
+  const cf50R = cf50;
+  const s1R = s1;
+  const addrValR = ($('r-address') || {}).value || ($('address') || {}).value || '';
+  updateQuickGlance({
+    n, loanType, gsi, piti, cf, coc: cocR, dscr: dscrR, thc: thcR,
+    comfortCap, fhaSst: fhaSstRapid, price, address: addrValR, ownerUnit: 0,
+    onePctRatio, s1pct: s1R, cf50: cf50R, capRate: capRateR, grm: grmR, sGrm: sGrmR,
+    fixedExp, pi, mip, vacRate, maintRate, capexRate, mgmtRate
+  });
+
+  // ── Review Bucket (v7.3 — Rapid uses a quick Scenario A estimate from net live-in housing cost) ──
+  // Quick Scenario A: PITI + owner's pro-rata utilities − net tenant offset (no reserve accrual, unlike THC)
+  const quickNetHousingR = piti + ((utilities + snow) / n) - netOffsetR;
+  const aBandR = scenarioABand(quickNetHousingR);
+  let maoGapPctR = 0;
+  if (isFinite(mao) && mao > 0 && price > 0) maoGapPctR = (price - mao) / price;
+  renderReviewBucket({
+    price, gsi,
+    aBand: aBandR,
+    bStatus: sBpass,
+    stressPass: stressCF >= 0,
+    cashBand: cashBandR,
+    fhaFail: fhaRequired && !fhaSstRapid.pass,
+    maoGapPct: maoGapPctR,
+    quick: true,
+  });
+
   // Update rapid comp links
   updateRapidCompLinks(zip, n);
 }
@@ -4162,7 +4476,7 @@ function updateRapidCompLinks(zip, n) {
 ═══════════════════════════════════════ */
 
 function getApiKey() {
-  return localStorage.getItem('rpc-rentcast-key') || '';
+  return localStorage.getItem('rpc-rentcast-key') || 'dbec3a44ae7f4cb2866b4193376f6d43';
 }
 
 function saveApiKey() {
@@ -4609,6 +4923,332 @@ function renderEquityChart(data) {
   svg.innerHTML = html;
 }
 
+/* ═══════════════════════════════════════
+   PRINT
+═══════════════════════════════════════ */
+function printAnalysis() {
+  const addr = ($('address') || {}).value || 'No address';
+  const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const hdr = $('printHeader');
+  if (hdr) hdr.textContent = 'Rental Property Calculator v7.3 · RPC v2-Aligned · ' + addr + ' · ' + date;
+  window.print();
+}
+
+/* ═══════════════════════════════════════
+   SESSION RESUME (rpc-last-session)
+═══════════════════════════════════════ */
+function snapshotFields() {
+  const snap = {};
+  const allFields = DEFAULT_FIELDS.concat(DEAL_FIELDS).concat(['ownerUnitUtilitiesMonthly', 'sstHaircutInput', 'otherIncome', 'address', 'zipCode', 'mnCounty']);
+  allFields.forEach(id => {
+    const el = $(id);
+    if (el) snap[id] = el.value;
+  });
+  const n = parseInt($('propType').value) || 4;
+  for (let i = 0; i < n; i++) {
+    ['rent', 'beds'].forEach(prefix => {
+      const el = $(prefix + i);
+      if (el) snap[prefix + i] = el.value;
+    });
+  }
+  return snap;
+}
+
+function saveSession() {
+  const price = getNum('purchasePrice');
+  if (!price) return; // don't save empty sessions
+  const snap = snapshotFields();
+  const session = { snap, savedAt: Date.now() };
+  try { localStorage.setItem('rpc-last-session', JSON.stringify(session)); } catch(e) {}
+}
+
+function resumeLastSession() {
+  try {
+    const raw = localStorage.getItem('rpc-last-session');
+    if (!raw) return;
+    const { snap } = JSON.parse(raw);
+    Object.entries(snap).forEach(([id, val]) => {
+      const el = $(id);
+      if (el) el.value = val;
+    });
+    // Rebuild rent inputs after restoring propType
+    buildRentInputs();
+    // Re-apply rent values after rebuild
+    const n = parseInt($('propType').value) || 4;
+    for (let i = 0; i < n; i++) {
+      ['rent', 'beds'].forEach(prefix => {
+        const el = $(prefix + i);
+        if (el && snap[prefix + i] !== undefined) el.value = snap[prefix + i];
+      });
+    }
+    $('resumeBanner').style.display = 'none';
+    calc();
+    rapidCalc();
+    toast('Session restored');
+  } catch(e) { toast('Could not restore session'); }
+}
+
+function dismissResume() {
+  $('resumeBanner').style.display = 'none';
+  localStorage.removeItem('rpc-last-session');
+}
+
+function checkSessionResume() {
+  try {
+    const raw = localStorage.getItem('rpc-last-session');
+    if (!raw) return;
+    const { snap, savedAt } = JSON.parse(raw);
+    const ageMs = Date.now() - (savedAt || 0);
+    if (ageMs > 7 * 24 * 60 * 60 * 1000) { localStorage.removeItem('rpc-last-session'); return; }
+    const addr = snap.address || snap['r-address'] || '';
+    const price = snap.purchasePrice || '';
+    const banner = $('resumeBanner');
+    const txt = $('resumeBannerText');
+    if (!banner) return;
+    txt.innerHTML = '<strong>Resume last session?</strong>' + (addr ? ' ' + addr : '') + (price ? ' · $' + Number(price).toLocaleString() : '');
+    banner.style.display = 'flex';
+  } catch(e) {}
+}
+
+/* ═══════════════════════════════════════
+   DEAL JOURNAL (rpc-deals-v1)
+═══════════════════════════════════════ */
+let journalFilter = 'all';
+let journalSelected = new Set();
+
+function getJournal() {
+  try { return JSON.parse(localStorage.getItem('rpc-deals-v1') || '[]'); } catch(e) { return []; }
+}
+
+function setJournal(deals) {
+  try { localStorage.setItem('rpc-deals-v1', JSON.stringify(deals)); } catch(e) {}
+}
+
+function triage(key) {
+  const price = getNum('purchasePrice');
+  const n = parseInt($('propType').value);
+  const loanType = $('loanType').value;
+
+  // Collect rents
+  const rents = [];
+  for (let i = 0; i < n; i++) rents.push(getNum('rent' + i));
+  const totalRent = rents.reduce((a,b) => a+b, 0) + getNum('otherIncome');
+
+  // MAO from DOM
+  const maoPriceEl = $('maoPrice');
+  const MAO = maoPriceEl ? parseFloat(maoPriceEl.textContent.replace(/[$,]/g, '')) || 0 : 0;
+
+  // Verdict from DOM
+  const verdictEl = $('verdict');
+  const verdict = verdictEl ? (verdictEl.classList.contains('pass') ? 'pass' : verdictEl.classList.contains('fail') ? 'fail' : 'warn') : 'warn';
+
+  const addr = ($('address') || {}).value || '';
+  const zip = ($('zipCode') || {}).value || '';
+  const county = ($('mnCounty') || {}).value || '';
+  const unitMix = rents.map((r,i) => (i === parseInt(($('ownerUnit')||{}).value||'0') ? '$0 (owner)' : '$' + r)).join(' / ');
+
+  const snap = snapshotFields();
+  const deals = getJournal();
+
+  // Check if this address already exists — update it
+  const existing = deals.find(d => d.address && d.address === addr && d.zip === zip);
+  const now = Date.now();
+
+  const entry = {
+    id: existing ? existing.id : now,
+    address: addr,
+    url: '',
+    price,
+    totalRent,
+    MAO,
+    verdict,
+    triage: key,
+    unitMix,
+    propertyType: n,
+    zip,
+    county,
+    market: county || 'MN',
+    confidence: 'manual',
+    notes: existing ? existing.notes || '' : '',
+    createdAt: existing ? existing.createdAt : now,
+    updatedAt: now,
+    fullSnapshot: snap
+  };
+
+  if (existing) {
+    deals[deals.indexOf(existing)] = entry;
+  } else {
+    deals.unshift(entry);
+  }
+
+  setJournal(deals);
+
+  // Update triage button active state
+  document.querySelectorAll('.triage-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.key === key);
+  });
+
+  const triageRow = $('triageRow');
+  if (triageRow) triageRow.style.display = '';
+
+  renderJournal();
+  toast({ dig: 'Saved as DIG IT', maybe: 'Saved as MAYBE', pass: 'Saved as PASS', fav: 'Saved as FAVORITE' }[key] || 'Saved');
+}
+
+function renderJournal() {
+  const deals = getJournal();
+  const filtered = journalFilter === 'all' ? deals : deals.filter(d => d.triage === journalFilter);
+
+  const countEl = $('journalCount');
+  if (countEl) countEl.textContent = deals.length;
+
+  const listEl = $('journalList');
+  if (!listEl) return;
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="journal-empty">No saved deals' + (journalFilter !== 'all' ? ' matching this filter' : '') + '. Triage a deal above to save it.</div>';
+    return;
+  }
+
+  const TRIAGE_LABELS = { dig: 'DIG', maybe: 'MAYBE', pass: 'PASS', fav: 'FAV' };
+  const TRIAGE_PILL_CLASS = { dig: 'pass', maybe: 'warn', pass: 'fail', fav: 'pass' };
+
+  listEl.innerHTML = filtered.map(d => {
+    const dotClass = d.triage === 'pass' ? 'pass-dot' : (d.triage || 'none');
+    const delta = d.MAO > 0 && d.price > 0 ? d.MAO - d.price : null;
+    const deltaHTML = delta !== null
+      ? '<span class="' + (delta >= 0 ? 'delta-pos' : 'delta-neg') + '">' + (delta >= 0 ? '+' : '') + '$' + Math.round(Math.abs(delta)).toLocaleString() + ' MAO' + '</span>'
+      : '';
+    const pillClass = TRIAGE_PILL_CLASS[d.triage] || 'warn';
+    const verdictPillClass = d.verdict === 'pass' ? 'pass' : d.verdict === 'fail' ? 'fail' : 'warn';
+    const sel = journalSelected.has(d.id);
+    return '<div class="journal-row' + (sel ? ' selected' : '') + '" onclick="loadDeal(' + d.id + ')">' +
+      '<div class="journal-dot ' + dotClass + '"></div>' +
+      '<div class="journal-body">' +
+        '<div class="journal-addr">' + (d.address || 'No address') +
+          (d.url ? ' <a class="url-ico" href="' + d.url + '" target="_blank" onclick="event.stopPropagation()">↗</a>' : '') +
+        '</div>' +
+        '<div class="journal-meta">' +
+          '<span>' + (d.propertyType || '?') + '-unit</span>' +
+          '<span class="sep">·</span>' +
+          '<span>$' + (d.price || 0).toLocaleString() + '</span>' +
+          '<span class="sep">·</span>' +
+          '<span>$' + (d.totalRent || 0).toLocaleString() + '/mo</span>' +
+          (deltaHTML ? '<span class="sep">·</span>' + deltaHTML : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="journal-right">' +
+        (d.triage ? '<span class="journal-verdict-pill ' + pillClass + '">' + (TRIAGE_LABELS[d.triage] || d.triage.toUpperCase()) + '</span>' : '') +
+        '<span class="journal-verdict-pill ' + verdictPillClass + '">' + (d.verdict || '?').toUpperCase() + '</span>' +
+        '<button class="journal-del-btn" onclick="event.stopPropagation();deleteDeal(' + d.id + ')">×</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function loadDeal(id) {
+  const deals = getJournal();
+  const d = deals.find(d => d.id === id);
+  if (!d || !d.fullSnapshot) { toast('No saved data for this deal'); return; }
+
+  const snap = d.fullSnapshot;
+  // Backward compat: default missing v6.1 fields
+  if (!snap.ownerUnitUtilitiesMonthly) snap.ownerUnitUtilitiesMonthly = '280';
+  if (!snap.loanType) snap.loanType = 'fha';
+
+  Object.entries(snap).forEach(([fieldId, val]) => {
+    const el = $(fieldId);
+    if (el) el.value = val;
+  });
+
+  buildRentInputs();
+  const n = parseInt($('propType').value) || 4;
+  for (let i = 0; i < n; i++) {
+    ['rent', 'beds'].forEach(prefix => {
+      const el = $(prefix + i);
+      if (el && snap[prefix + i] !== undefined) el.value = snap[prefix + i];
+    });
+  }
+
+  // Restore triage button state
+  document.querySelectorAll('.triage-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.key === d.triage);
+  });
+  const triageRow = $('triageRow');
+  if (triageRow) triageRow.style.display = '';
+
+  setMode('full');
+  calc();
+  toast('Loaded: ' + (d.address || 'deal'));
+}
+
+function deleteDeal(id) {
+  const deals = getJournal().filter(d => d.id !== id);
+  setJournal(deals);
+  journalSelected.delete(id);
+  renderJournal();
+}
+
+function setJournalFilter(filter) {
+  journalFilter = filter;
+  document.querySelectorAll('.journal-filter').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === filter);
+  });
+  renderJournal();
+}
+
+function exportJournalJSON() {
+  const deals = getJournal();
+  if (!deals.length) { toast('No deals to export'); return; }
+  const blob = new Blob([JSON.stringify(deals, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'rpc-deals-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function confirmWipeJournal() {
+  if (!confirm('Delete all saved deals? This cannot be undone.')) return;
+  setJournal([]);
+  journalSelected.clear();
+  renderJournal();
+  toast('Journal cleared');
+}
+
+function clearJournalSelection() {
+  journalSelected.clear();
+  renderJournal();
+  const btn = $('clearSelBtn');
+  if (btn) btn.style.display = 'none';
+  const cmpBtn = $('compareBtn');
+  if (cmpBtn) { cmpBtn.disabled = true; cmpBtn.style.opacity = '0.5'; }
+}
+
+function openCompare() {
+  const deals = getJournal().filter(d => journalSelected.has(d.id));
+  if (deals.length < 2) { toast('Select at least 2 deals to compare'); return; }
+  const body = $('compareBody');
+  if (!body) return;
+  const cols = deals.map(d => `
+    <div style="flex:1;min-width:180px;padding:12px;border:1px solid var(--border);border-radius:var(--r-sm);">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.address || 'No address'}</div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">
+        <div>Price: $${(d.price||0).toLocaleString()}</div>
+        <div>Rent: $${(d.totalRent||0).toLocaleString()}/mo</div>
+        <div>MAO: ${d.MAO > 0 ? '$'+d.MAO.toLocaleString() : '—'}</div>
+        <div>Verdict: <span style="color:${d.verdict==='pass'?'var(--green)':d.verdict==='fail'?'var(--red)':'var(--amber)'}">${(d.verdict||'?').toUpperCase()}</span></div>
+        <div>Triage: ${(d.triage||'none').toUpperCase()}</div>
+      </div>
+    </div>`).join('');
+  body.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:10px;">' + cols + '</div>';
+  $('compareOverlay').style.display = 'flex';
+}
+
+function closeCompare() {
+  $('compareOverlay').style.display = 'none';
+}
+
 /* ─── Startup ─── */
 const hadDefaults = loadDefaults();
 loadApiKeyStatus();
@@ -4616,7 +5256,18 @@ loadProxyUrlStatus();
 buildRentInputs();
 calc();
 rapidCalc();
+checkSessionResume();
+renderJournal();
+renderUnitMixQueue();
 if (hadDefaults) toast('Your saved defaults loaded');
+
+// Escape key closes overlays (v7.2 — restored v6.1 polish)
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (typeof closeHelp === 'function') closeHelp();
+    if (typeof closeCompare === 'function') closeCompare();
+  }
+});
 
 // Zip code listener for comp links + Redfin + ZORI
 document.addEventListener('DOMContentLoaded', () => {

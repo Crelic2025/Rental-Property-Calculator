@@ -6,6 +6,16 @@ Built around the **BiggerPockets Four Square Method** and the conservative under
 
 -----
 
+## Current Canonical Build
+
+- **Current version:** Rental Property Calculator v7.3 · RPC v2-Aligned
+- **Canonical app file:** `index.html`
+- **Local canonical served copy:** `/Users/Crelic/Desktop/apps-server/rpc.html`
+- **Local URL when apps server is running:** `http://localhost:8888/rpc.html`
+- Older duplicate HTML files were removed/archived so future RPC requests resolve to one current build.
+
+-----
+
 ## What This Is
 
 A production-quality rental property underwriting tool designed for a first-time house hacker who wants to:
