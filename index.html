@@ -620,6 +620,23 @@ body {
 }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+/* Batch 8B §8 — the only design addition in this batch: narrowly necessary
+   invalid-state feedback for the listing-URL fields. Nothing else in the
+   stylesheet changes. Both rules are inert until a field actually fails
+   rpcValidateListingUrl(), so the default appearance is untouched. */
+input.rpc-url-invalid,
+input[type="url"].rpc-url-invalid {
+  border-color: var(--red-border);
+  background: var(--red-bg);
+}
+.rpc-url-error {
+  display: block;
+  font-size: 11px;
+  color: var(--red);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
 input[type="number"], input[type="text"], input[type="url"], select {
   width: 100%;
   padding: 10px 12px;
@@ -2036,11 +2053,20 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
     <div class="rapid-inputs">
       <div class="full-width field">
         <label class="field-label">Address</label>
-        <input type="text" id="r-address" placeholder="e.g. 5200 Minnetonka Blvd" oninput="onRapidInputChange()">
+        <!-- Batch 8B §4: the inline oninput="onRapidInputChange()" handler referenced a
+             function that has never existed in this file, so every keystroke threw
+             ReferenceError. Rapid address identity/provenance is driven programmatically
+             by rpcAttachStateWatchers(); no inline handler is required or wanted here. -->
+        <input type="text" id="r-address" placeholder="e.g. 5200 Minnetonka Blvd">
       </div>
       <div class="full-width field">
         <label class="field-label">Listing URL <span style="font-weight:400;color:var(--text4);font-size:11px;">(optional)</span></label>
-        <input type="url" id="r-url" placeholder="Paste Zillow / Realtor / MLS link" oninput="onUrlChange()">
+        <!-- Batch 8B §4: the inline oninput="onUrlChange()" handler referenced a function
+             that has never existed in this file, so every keystroke threw ReferenceError.
+             Listing-URL validity feedback is attached programmatically by
+             rpcAttachStateWatchers(). type="url" is a keyboard/UX hint only and is NOT the
+             security boundary — rpcValidateListingUrl() is (Batch 8B §7). -->
+        <input type="url" id="r-url" placeholder="Paste Zillow / Realtor / MLS link">
       </div>
       <div class="field">
         <label class="field-label">Asking Price</label>
@@ -3545,15 +3571,22 @@ function getCompURL(site, zip, beds) {
   const z = zip || '55345';
   const b = beds || '1';
   const bedLabel = MARKET_RANGES[b]?.label || (b + ' bedroom');
+  // Batch 8B §2.6/§6: the ZIP is free text from the user. Every interpolation of
+  // it (and of the bedroom token) is percent-encoded, so the result is always a
+  // well-formed absolute https URL and can never contribute attribute-breakout
+  // characters to the comp-link templates that consume it. Legitimate five-digit
+  // ZIPs are unaffected — encodeURIComponent leaves [0-9] untouched.
+  const ez = encodeURIComponent(z);
+  const eb = encodeURIComponent(b);
   switch(site) {
     case 'zillow':
-      return `https://www.zillow.com/homes/for_rent/${z}/`;
+      return `https://www.zillow.com/homes/for_rent/${ez}/`;
     case 'google':
       // Google search: always works, returns Zillow + Apartments.com + Rentcafe results
       return `https://www.google.com/search?q=${encodeURIComponent(bedLabel + ' apartment for rent ' + z)}`;
     case 'craigslist':
       // Craigslist Minneapolis: excellent URL filter support
-      return `https://minneapolis.craigslist.org/search/apa?postal=${z}&search_distance=5&min_bedrooms=${b}&max_bedrooms=${b}`;
+      return `https://minneapolis.craigslist.org/search/apa?postal=${ez}&search_distance=5&min_bedrooms=${eb}&max_bedrooms=${eb}`;
     default: return '#';
   }
 }
@@ -3668,11 +3701,16 @@ function updateCompLinks(i) {
   const el = $(`compLinks${i}`);
   if (!el) return;
   const arrow = '<svg viewBox="0 0 12 12" fill="currentColor"><path d="M3.5 1.5L8 6l-4.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>';
+  // Batch 8B §2.6/§6: these three hrefs are fixed-scheme https URLs built by
+  // getCompURL(), which now percent-encodes the user ZIP. Escaping them on the
+  // way into the attribute is the second, independent layer — an encoded URL
+  // contains no quote to break out with, and rpcEscapeHtml() only encodes, so
+  // the href the browser resolves is semantically identical.
   el.innerHTML = `
-    <a class="comp-btn" href="${getCompURL('zillow', zip, beds)}" target="_blank" rel="noopener">Zillow ${arrow}</a>
-    <a class="comp-btn" href="${getCompURL('google', zip, beds)}" target="_blank" rel="noopener">Google ${arrow}</a>
-    <a class="comp-btn" href="${getCompURL('craigslist', zip, beds)}" target="_blank" rel="noopener">Craigslist ${arrow}</a>
-    <span style="font-family:var(--mono);font-size:9px;color:var(--text4);margin-left:2px;">pull 3 comps for ${MARKET_RANGES[beds]?.label || beds + 'BR'}</span>`;
+    <a class="comp-btn" href="${rpcEscapeHtml(getCompURL('zillow', zip, beds))}" target="_blank" rel="noopener">Zillow ${arrow}</a>
+    <a class="comp-btn" href="${rpcEscapeHtml(getCompURL('google', zip, beds))}" target="_blank" rel="noopener">Google ${arrow}</a>
+    <a class="comp-btn" href="${rpcEscapeHtml(getCompURL('craigslist', zip, beds))}" target="_blank" rel="noopener">Craigslist ${arrow}</a>
+    <span style="font-family:var(--mono);font-size:9px;color:var(--text4);margin-left:2px;">pull 3 comps for ${rpcEscapeHtml(MARKET_RANGES[beds]?.label || beds + 'BR')}</span>`;
 }
 
 function updateRange(i) {
@@ -4697,6 +4735,9 @@ function newDeal() {
   if (ra) ra.value = '';
   const ru = $('r-url');
   if (ru) ru.value = '';
+  // Batch 8B: both URL fields are now blank, so any invalid-state marking from
+  // the previous deal is stale presentation and goes with it. Idempotent.
+  rpcSetListingUrlInvalidState(false, '');
   unitMixQueue = [];
   _rpcUnitMixQueueProv = null;      // v2/C1: queue provenance is per-deal
   _rpcTotalRentProv = null;         // v4/Issue 3: aggregate provenance is per-deal
@@ -5280,6 +5321,19 @@ function rpcAttachStateWatchers() {
     rtEl.addEventListener('input', rpcOnTotalRentEdited);
     rtEl.addEventListener('change', rpcOnTotalRentEdited);
   }
+  // Batch 8B §4: the explicit, testable replacement for the removed undefined
+  // inline onUrlChange() handler. Attached here so it inherits this function's
+  // existing idempotence guard — repeated calls (script execution AND
+  // DOMContentLoaded, plus any later mode cycle) never stack duplicate
+  // listeners. NOTE: nothing new is bound to #r-address; its identity and
+  // provenance handling stays exactly the single pair of listeners registered
+  // in the loop above, so Batch 8A still fires once per event.
+  ['listingUrl', 'r-url'].forEach(function (id) {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', rpcOnListingUrlEdited);
+    el.addEventListener('change', rpcOnListingUrlEdited);
+  });
   _rpcWatchersAttached = true;
 }
 
@@ -5465,6 +5519,14 @@ function rpcSyncRapidFromFull() {
   if (rz) rz.value = ($('zipCode') || {}).value || '';
   const rpr = $('r-price');
   if (rpr) rpr.value = ($('purchasePrice') || {}).value || '';
+  // Batch 8B §4: #listingUrl and #r-url are the SAME current-deal value. Copied
+  // RAW and unconditionally, blanks included — for exactly the reason the
+  // address and price are: a cleared Full URL is a deliberate statement, and a
+  // truthy-only copy would leave the previous property's link standing in the
+  // Rapid pane. No validation happens here; validation gates STORAGE and
+  // RENDERING, never what the user is allowed to have typed.
+  const rurl = $('r-url');
+  if (rurl) rurl.value = ($('listingUrl') || {}).value || '';
 
   // v3: the queue carries AUTHORED unit values. A form holding nothing but
   // rebuilt defaults has no unit plan to hand over.
@@ -5529,6 +5591,11 @@ function expandToFull() {
   $('address').value = ra;
   $('zipCode').value = rz;
   $('propType').value = rn;
+  // Batch 8B §4: the Rapid listing URL is this deal's listing URL. Copied raw
+  // into the Full field on expansion, blanks included, so the two panes never
+  // disagree and a cleared Rapid URL cannot leave a stale Full value visible.
+  const luEl = $('listingUrl');
+  if (luEl) luEl.value = ($('r-url') || {}).value || '';
 
   // Batch 8A §4.3 precedence, resolved BEFORE the form is rebuilt:
   //   1. same-deal, same-count, authored Full draft for `target` → restore exactly
@@ -5928,9 +5995,10 @@ function updateRapidCompLinks(zip, n) {
   const labels = ['Studio','1BR','2BR','3BR'];
   let html = '';
   beds.forEach((b, idx) => {
+    // Batch 8B §2.6/§6 — same two-layer treatment as updateCompLinks().
     html += `<span style="font-size:11px;font-weight:600;color:var(--text3);margin-right:2px;">${labels[idx]}:</span>`;
-    html += `<a class="comp-btn" href="${getCompURL('zillow', zip, b)}" target="_blank" rel="noopener">Zillow ${arrow}</a>`;
-    html += `<a class="comp-btn" href="${getCompURL('google', zip, b)}" target="_blank" rel="noopener">Google ${arrow}</a>`;
+    html += `<a class="comp-btn" href="${rpcEscapeHtml(getCompURL('zillow', zip, b))}" target="_blank" rel="noopener">Zillow ${arrow}</a>`;
+    html += `<a class="comp-btn" href="${rpcEscapeHtml(getCompURL('google', zip, b))}" target="_blank" rel="noopener">Google ${arrow}</a>`;
     html += '<span style="width:12px;"></span>';
   });
   el.innerHTML = html;
@@ -6100,7 +6168,12 @@ async function pullComps(unitIndex) {
     const listings = Array.isArray(data) ? data : (data.listings || data.results || []);
 
     if (listings.length === 0) {
-      resultsEl.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:8px 0;">No active ${MARKET_RANGES[beds]?.label || beds+'BR'} listings found in ${zip}. Try the manual comp links.</div>`;
+      // Batch 8B §2.6: `zip` is raw text from the ZIP field. Built as a text node.
+      rpcClearElement(resultsEl);
+      const noneEl = rpcAppendTextElement(resultsEl, 'div', '',
+        'No active ' + (MARKET_RANGES[beds]?.label || beds + 'BR') +
+        ' listings found in ' + String(zip) + '. Try the manual comp links.');
+      noneEl.setAttribute('style', 'font-size:12px;color:var(--text3);padding:8px 0;');
       toast('No comps found — try manual search');
       return;
     }
@@ -6140,41 +6213,77 @@ function renderCompResults(unitIndex, listings, beds) {
   const low = sorted[0];
   const conservative = Math.round(median * 0.95); // Median minus 5% per PDF
 
-  // Build comp rows
-  const rows = listings.slice(0, 5).map(l => {
+  // ── Batch 8B §2.1 ──────────────────────────────────────────────────────────
+  // Everything a RentCast listing object can contribute — the formatted address
+  // and its variants, plus the string-valued bedroom, bathroom and square-footage
+  // fields — is placed with textContent and can only display literally. All money
+  // passes through fmt(), which returns a formatted number or an em dash and is
+  // therefore numeric-only. The "Use" button gets a real listener over the two
+  // numeric closure values instead of an interpolated inline handler.
+  const bedsLabel = (typeof beds === 'string' || typeof beds === 'number') &&
+    Object.prototype.hasOwnProperty.call(MARKET_RANGES, String(beds))
+      ? MARKET_RANGES[String(beds)].label
+      : String(beds) + 'BR';
+
+  rpcClearElement(el);
+  const panel = document.createElement('div');
+  panel.className = 'comp-results';
+
+  const hd = document.createElement('div');
+  hd.className = 'comp-results-hd';
+  rpcAppendTextElement(hd, 'span', '', 'RentCast Comps \u2014 ' + bedsLabel);
+  rpcAppendTextElement(hd, 'span', 'cr-count',
+    listings.length + ' listing' + (listings.length > 1 ? 's' : ''));
+  panel.appendChild(hd);
+
+  listings.slice(0, 5).forEach(function (l) {
     const rent = l.price || l.rent || l.rentAmount || l.listedRent || 0;
-    const addr = l.formattedAddress || l.addressLine1 || l.address || l.streetAddress || '—';
+    const addr = l.formattedAddress || l.addressLine1 || l.address || l.streetAddress || '\u2014';
     const sqft = l.squareFootage || l.sqft || '';
     const bedCount = l.bedrooms ?? beds;
     const bathCount = l.bathrooms ?? '';
 
-    return `<div class="comp-row-item">
-      <div>
-        <div class="cr-addr">${addr}</div>
-        <div class="cr-detail">${bedCount}bd${bathCount ? ' / ' + bathCount + 'ba' : ''}${sqft ? ' · ' + sqft + ' sqft' : ''}</div>
-      </div>
-      <div class="cr-rent">${rent > 0 ? fmt(rent) : '—'}</div>
-    </div>`;
-  }).join('');
+    const item = document.createElement('div');
+    item.className = 'comp-row-item';
+    const left = document.createElement('div');
+    rpcAppendTextElement(left, 'div', 'cr-addr', String(addr));
+    rpcAppendTextElement(left, 'div', 'cr-detail',
+      String(bedCount) + 'bd' +
+      (bathCount ? ' / ' + String(bathCount) + 'ba' : '') +
+      (sqft ? ' \u00b7 ' + String(sqft) + ' sqft' : ''));
+    item.appendChild(left);
+    rpcAppendTextElement(item, 'div', 'cr-rent', rent > 0 ? fmt(rent) : '\u2014');
+    panel.appendChild(item);
+  });
 
-  el.innerHTML = `
-    <div class="comp-results">
-      <div class="comp-results-hd">
-        <span>RentCast Comps — ${MARKET_RANGES[beds]?.label || beds + 'BR'}</span>
-        <span class="cr-count">${listings.length} listing${listings.length > 1 ? 's' : ''}</span>
-      </div>
-      ${rows}
-      <div class="comp-summary">
-        <div>
-          <span class="cs-label">Low: </span><span class="cs-val">${fmt(low)}</span>
-          <span style="margin:0 6px;color:var(--text4);">·</span>
-          <span class="cs-label">Median: </span><span class="cs-val">${fmt(median)}</span>
-          <span style="margin:0 6px;color:var(--text4);">·</span>
-          <span class="cs-label">Conservative (−5%): </span><span class="cs-val" style="color:var(--green)">${fmt(conservative)}</span>
-        </div>
-        <button class="comp-use-btn" onclick="useCompRent(${unitIndex}, ${conservative})">Use ${fmt(conservative)}</button>
-      </div>
-    </div>`;
+  const summary = document.createElement('div');
+  summary.className = 'comp-summary';
+  const figures = document.createElement('div');
+  const dot = () => {
+    const s = document.createElement('span');
+    s.setAttribute('style', 'margin:0 6px;color:var(--text4);');
+    s.textContent = '\u00b7';
+    return s;
+  };
+  rpcAppendTextElement(figures, 'span', 'cs-label', 'Low: ');
+  rpcAppendTextElement(figures, 'span', 'cs-val', fmt(low));
+  figures.appendChild(dot());
+  rpcAppendTextElement(figures, 'span', 'cs-label', 'Median: ');
+  rpcAppendTextElement(figures, 'span', 'cs-val', fmt(median));
+  figures.appendChild(dot());
+  rpcAppendTextElement(figures, 'span', 'cs-label', 'Conservative (\u22125%): ');
+  const consEl = rpcAppendTextElement(figures, 'span', 'cs-val', fmt(conservative));
+  consEl.setAttribute('style', 'color:var(--green)');
+  summary.appendChild(figures);
+
+  const useBtn = document.createElement('button');
+  useBtn.className = 'comp-use-btn';
+  useBtn.textContent = 'Use ' + fmt(conservative);
+  useBtn.addEventListener('click', function () { useCompRent(unitIndex, conservative); });
+  summary.appendChild(useBtn);
+
+  panel.appendChild(summary);
+  el.appendChild(panel);
 }
 
 function useCompRent(unitIndex, rent) {
@@ -6415,6 +6524,232 @@ function rpcBuildProposal(data) {
       { purchasePrice: priceDependency });
   }
   return items;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BATCH 8B — OUTPUT SAFETY AND LISTING-URL POLICY
+
+   Security invariant (§1): a string that can originate from a user, persisted
+   journal/session data, a listing/API response, or legacy storage must never be
+   parsed as HTML, and must never become an active URL unless it passes the one
+   locked policy below.
+
+   The preferred closure in this file is explicit DOM construction — the same
+   rpcClearElement()/rpcAppendTextElement()/createTextNode() style Batch 8A
+   already uses in rpcRenderPreview(). rpcEscapeHtml() exists only for the two
+   comp-link renderers, where the surrounding template is entirely static markup
+   and escaping one interpolated value is materially simpler than rebuilding the
+   node tree. No third-party sanitizer is added (§7).
+═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * §7 — narrow HTML-escaping boundary. Escapes exactly &, <, >, " and '.
+ *
+ * `&` MUST be replaced first or the other replacements would be re-escaped.
+ * This is an ENCODER, not a sanitizer: nothing is stripped and no legitimate
+ * address is altered, so the visible text after parsing is byte-identical to
+ * the input. Callers pass raw source data on every render — never previously
+ * escaped output — so repeated renders cannot double-escape (§7).
+ */
+function rpcEscapeHtml(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Characters that are never legitimate raw (un-percent-encoded) content in a
+ * pasted listing link, and which are exactly the ones used to break out of an
+ * HTML attribute or smuggle a scheme past a naive parser:
+ *
+ *   ASCII control characters (<= 0x1F and 0x7F)   §3 "no ASCII control characters"
+ *   space                                          unquoted-attribute breakout
+ *   " ' < > `                                      quoted-attribute / tag breakout
+ *   \                                              WHATWG treats it as / in special
+ *                                                  schemes; never raw in a real link
+ *
+ * Rejecting is deliberate and fail-closed. Percent-encoded equivalents (%20,
+ * %22, …) are untouched and stay valid, so query strings, fragments and escapes
+ * still work (§7 forbids stripping characters, not refusing a hostile value).
+ */
+function rpcUrlHasUnsafeRawChars(s) {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c <= 0x1F || c === 0x7F) return true;                       // control
+    if (c === 0x20) return true;                                    // space
+    if (c === 0x22 || c === 0x27) return true;                      // " '
+    if (c === 0x3C || c === 0x3E) return true;                      // < >
+    if (c === 0x60 || c === 0x5C) return true;                      // ` \
+  }
+  return false;
+}
+
+/**
+ * §3 — THE listing-URL policy. Pure, side-effect free, and the single decision
+ * point used by every storage, render and link boundary in this file.
+ *
+ * Valid only when ALL hold:
+ *   - blank (after trim) is allowed and means "no listing URL";
+ *   - nonblank input is trimmed;
+ *   - it parses as an ABSOLUTE URL (WHATWG parser, no base — so protocol-
+ *     relative "//host/path" and relative paths both fail here);
+ *   - scheme is exactly http: or https:;
+ *   - hostname is non-empty;
+ *   - it carries no username or password;
+ *   - it contains no ASCII control characters (see rpcUrlHasUnsafeRawChars).
+ *
+ * Deliberately NOT a hostname allowlist: valid MLS and brokerage domains vary.
+ * Deliberately NOT regex-based parsing: `new URL` is the parser (§7).
+ *
+ * @returns {{ok:boolean, blank:boolean, url:string, reason:string}}
+ *          `url` is the trimmed, storable value and is '' whenever ok is false.
+ */
+function rpcValidateListingUrl(raw) {
+  const trimmed = String(raw === null || raw === undefined ? '' : raw).trim();
+  if (trimmed === '') return { ok: true, blank: true, url: '', reason: 'blank' };
+  if (rpcUrlHasUnsafeRawChars(trimmed)) {
+    return { ok: false, blank: false, url: '', reason: 'control-or-breakout-characters' };
+  }
+  let parsed;
+  try {
+    parsed = new URL(trimmed);                 // absolute parse; no base supplied
+  } catch (e) {
+    return { ok: false, blank: false, url: '', reason: 'not-an-absolute-url' };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { ok: false, blank: false, url: '', reason: 'scheme-not-http-or-https' };
+  }
+  if (!parsed.hostname) return { ok: false, blank: false, url: '', reason: 'empty-hostname' };
+  if (parsed.username || parsed.password) {
+    return { ok: false, blank: false, url: '', reason: 'embedded-credentials' };
+  }
+  return { ok: true, blank: false, url: trimmed, reason: 'ok' };
+}
+
+/**
+ * The listing-URL input belonging to the pane the user is actually in.
+ *
+ * Batch 8B v2 (Hermes P1): the first implementation preferred #listingUrl
+ * whenever it was nonblank and otherwise fell back to #r-url. That reads a
+ * HIDDEN field, which is wrong in both directions:
+ *
+ *   - Full active with a blank Full URL and a stale Rapid URL left over from a
+ *     previous property meant triage() stored the PREVIOUS property's link onto
+ *     the current one — a cross-property leak.
+ *   - Rapid active with an invalid visible URL and a valid hidden Full URL meant
+ *     the validity feedback judged the value the user could not see, leaving the
+ *     visible bad value unmarked.
+ *
+ * The current-deal listing URL is whatever the ACTIVE pane shows. Never the
+ * other pane, and never a truthy fallback to it. The two panes are kept in
+ * agreement by the raw synchronization at the mode-transition seams (§4), which
+ * is the only place a value legitimately crosses between them.
+ */
+function rpcActiveListingUrlFieldId() {
+  return currentMode === 'rapid' ? 'r-url' : 'listingUrl';
+}
+
+function rpcCurrentListingUrlRaw() {
+  const el = $(rpcActiveListingUrlFieldId());
+  return el ? String(el.value) : '';
+}
+
+/** §4 — copy the current-deal listing URL RAW into both panes, blanks included. */
+function rpcSyncListingUrlFields(value) {
+  const v = String(value === null || value === undefined ? '' : value);
+  const full = $('listingUrl');
+  if (full) full.value = v;
+  const rapid = $('r-url');
+  if (rapid) rapid.value = v;
+}
+
+/**
+ * §8 — narrowly necessary invalid-state feedback.
+ *
+ * Batch 8B v2 (Hermes P1): the marking follows the ACTIVE pane. Both fields are
+ * cleared first, then only the field the user can actually see is marked, so a
+ * hidden pane can never carry an invalid marking for a value that is not the
+ * current deal's. Idempotent: repeated calls never stack duplicate messages.
+ * Purely presentational; it stores nothing.
+ */
+function rpcSetListingUrlInvalidState(isInvalid, message) {
+  const activeId = rpcActiveListingUrlFieldId();
+  ['listingUrl', 'r-url'].forEach(function (id) {
+    const el = $(id);
+    if (!el) return;
+    const mark = !!isInvalid && id === activeId;
+    el.classList.toggle('rpc-url-invalid', mark);
+    if (mark) el.setAttribute('aria-invalid', 'true');
+    else el.removeAttribute('aria-invalid');
+
+    const errId = id + '-urlError';
+    let err = $(errId);
+    if (!mark) {
+      if (err && err.parentNode) err.parentNode.removeChild(err);
+      return;
+    }
+    if (!err) {
+      err = document.createElement('span');
+      err.id = errId;
+      err.className = 'rpc-url-error';
+      if (el.parentNode) el.parentNode.appendChild(err);
+    }
+    err.textContent = message || 'That listing URL is not a valid http(s) link.';
+  });
+}
+
+/** Human-readable reason for the one invalid-URL message the user actually sees. */
+function rpcListingUrlMessage(reason) {
+  switch (reason) {
+    case 'control-or-breakout-characters':
+      return 'That listing URL contains characters that are not allowed in a link. Paste the plain http(s) address.';
+    case 'scheme-not-http-or-https':
+      return 'Only http:// and https:// listing links can be saved.';
+    case 'embedded-credentials':
+      return 'Listing links with an embedded username or password are not saved.';
+    case 'empty-hostname':
+      return 'That listing URL has no website address in it.';
+    default:
+      return 'That does not look like a complete http(s) listing link.';
+  }
+}
+
+/**
+ * Live validity feedback for either listing-URL field. Attached programmatically
+ * by rpcAttachStateWatchers() — this is the explicit, testable replacement for
+ * the removed undefined inline onUrlChange() handler (§4). It NEVER writes deal
+ * state, never stores anything, and never rewrites what the user typed.
+ */
+function rpcOnListingUrlEdited() {
+  const verdict = rpcValidateListingUrl(rpcCurrentListingUrlRaw());
+  rpcSetListingUrlInvalidState(!verdict.ok && !verdict.blank,
+    rpcListingUrlMessage(verdict.reason));
+}
+
+/**
+ * §6 — the ONLY way this file turns stored data into a clickable listing link.
+ *
+ * The anchor is created and its href assigned as a DOM property AFTER the value
+ * has passed rpcValidateListingUrl(); no untrusted data is ever concatenated
+ * into an href string. An invalid or blank value yields null, and callers then
+ * render inert text instead — a stored bad URL is never upgraded into a link on
+ * this or any later render (§5).
+ *
+ * @returns {HTMLAnchorElement|null}
+ */
+function rpcCreateListingLink(rawUrl, className, label) {
+  const verdict = rpcValidateListingUrl(rawUrl);
+  if (!verdict.ok || verdict.blank) return null;
+  const a = document.createElement('a');
+  if (className) a.className = className;
+  a.href = verdict.url;                       // validated http(s) only
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.textContent = label === null || label === undefined ? '\u2197' : String(label);
+  return a;
 }
 
 function rpcClearElement(el) {
@@ -6911,7 +7246,16 @@ function checkSessionResume() {
     const banner = $('resumeBanner');
     const txt = $('resumeBannerText');
     if (!banner) return;
-    txt.innerHTML = '<strong>Resume last session?</strong>' + (addr ? ' ' + addr : '') + (price ? ' · $' + Number(price).toLocaleString() : '');
+    // Batch 8B §2.2: the saved address is persisted, user-authored text. It is
+    // appended as a text node, so the banner's visible string is unchanged while
+    // markup in a stored address can no longer be parsed. `price` is coerced
+    // through Number() before formatting and is numeric-only.
+    if (txt) {
+      rpcClearElement(txt);
+      rpcAppendTextElement(txt, 'strong', '', 'Resume last session?');
+      if (addr) txt.appendChild(document.createTextNode(' ' + String(addr)));
+      if (price) txt.appendChild(document.createTextNode(' \u00b7 $' + Number(price).toLocaleString()));
+    }
     banner.style.display = 'flex';
   } catch(e) {}
 }
@@ -6957,6 +7301,20 @@ function triage(key) {
   const zip = ($('zipCode') || {}).value || '';
   const county = ($('mnCounty') || {}).value || '';
   const unitMix = rents.map((r,i) => (i === parseInt(($('ownerUnit')||{}).value||'0') ? '$0 (owner)' : '$' + r)).join(' / ');
+
+  // ── Batch 8B §5: listing-URL gate, evaluated BEFORE anything is written ─────
+  // A nonblank current listing URL that fails the policy stops the whole triage:
+  // no journal entry is created or updated, no triage button state changes, and
+  // setJournal() is never reached. Blank stays legal and means "no listing URL".
+  const urlVerdict = rpcValidateListingUrl(rpcCurrentListingUrlRaw());
+  if (!urlVerdict.ok) {
+    _rpcJournalLastResult = { action: 'blocked', reason: 'invalid-url', urlReason: urlVerdict.reason };
+    rpcSetListingUrlInvalidState(true, rpcListingUrlMessage(urlVerdict.reason));
+    toast('That listing URL is not a valid http(s) link \u2014 nothing was saved. ' +
+          'Fix or clear the Listing URL field, then triage again.');
+    return;
+  }
+  rpcSetListingUrlInvalidState(false, '');
 
   const snap = snapshotFields();
   const deals = getJournal();
@@ -7006,15 +7364,27 @@ function triage(key) {
     entry.zip = existing.zip ? existing.zip : zip;   // first-seen identity display
     if (entry.notes === undefined || entry.notes === null) entry.notes = '';
     if (entry.url === undefined || entry.url === null) entry.url = '';
+    // §5: a valid nonblank URL is stored trimmed. A BLANK URL during an
+    // address-variant update deliberately preserves the stored URL — Batch 8A's
+    // stored-URL preservation guarantee is unchanged, because a user who is
+    // re-triaging a known property from a cleared form has not said "remove the
+    // link I saved earlier".
+    if (!urlVerdict.blank) entry.url = urlVerdict.url;
     if (!entry.createdAt) entry.createdAt = now;
   } else {
     entry.id = now;
     entry.address = addr;
-    entry.url = '';
+    entry.url = urlVerdict.url;   // §5: trimmed valid value, or '' when blank
     entry.zip = zip;
     entry.notes = '';
     entry.createdAt = now;
   }
+  // §5: the stored snapshot agrees with entry.url on BOTH paths — including the
+  // blank address-variant update, where entry.url kept its earlier value. `snap`
+  // is the same object already assigned to entry.fullSnapshot, so loading this
+  // deal restores exactly the URL that was saved with it.
+  snap.listingUrl = entry.url;
+
   // Additive identity metadata only; idempotent lazy enrichment.
   if (keyV2) entry.journalKeyV2 = keyV2;
 
@@ -7058,37 +7428,85 @@ function renderJournal() {
   const TRIAGE_LABELS = { dig: 'DIG', maybe: 'MAYBE', pass: 'PASS', fav: 'FAV' };
   const TRIAGE_PILL_CLASS = { dig: 'pass', maybe: 'warn', pass: 'fail', fav: 'pass' };
 
-  listEl.innerHTML = filtered.map(d => {
-    const dotClass = d.triage === 'pass' ? 'pass-dot' : (d.triage || 'none');
+  // ── Batch 8B §2.3/§5/§6 ────────────────────────────────────────────────────
+  // Journal rows are built as DOM nodes, not as an HTML string. Every persisted
+  // value below — address, the triage/verdict enums, and even price/rent, whose
+  // `.toLocaleString()` returns a STRING unchanged when the stored field is a
+  // string — reaches the page through textContent and can only ever display as
+  // literal text. The row/delete handlers are closures over `d`, so a hostile or
+  // corrupt `d.id` can no longer be interpolated into an inline handler, and the
+  // listing link is created only by rpcCreateListingLink() after validation.
+  // Class names come from own-property lookups on the two closed maps, so a
+  // crafted triage value such as "constructor" cannot reach className.
+  const dotToken = (t) => (t === 'pass' ? 'pass-dot'
+    : (t === 'dig' || t === 'maybe' || t === 'fav') ? t : 'none');
+  const own = (obj, k) => (typeof k === 'string' &&
+    Object.prototype.hasOwnProperty.call(obj, k)) ? obj[k] : undefined;
+
+  rpcClearElement(listEl);
+  filtered.forEach(function (d) {
     const delta = d.MAO > 0 && d.price > 0 ? d.MAO - d.price : null;
-    const deltaHTML = delta !== null
-      ? '<span class="' + (delta >= 0 ? 'delta-pos' : 'delta-neg') + '">' + (delta >= 0 ? '+' : '') + '$' + Math.round(Math.abs(delta)).toLocaleString() + ' MAO' + '</span>'
-      : '';
-    const pillClass = TRIAGE_PILL_CLASS[d.triage] || 'warn';
     const verdictPillClass = d.verdict === 'pass' ? 'pass' : d.verdict === 'fail' ? 'fail' : 'warn';
     const sel = journalSelected.has(d.id);
-    return '<div class="journal-row' + (sel ? ' selected' : '') + '" onclick="loadDeal(' + d.id + ')">' +
-      '<div class="journal-dot ' + dotClass + '"></div>' +
-      '<div class="journal-body">' +
-        '<div class="journal-addr">' + (d.address || 'No address') +
-          (d.url ? ' <a class="url-ico" href="' + d.url + '" target="_blank" onclick="event.stopPropagation()">↗</a>' : '') +
-        '</div>' +
-        '<div class="journal-meta">' +
-          '<span>' + (d.propertyType || '?') + '-unit</span>' +
-          '<span class="sep">·</span>' +
-          '<span>$' + (d.price || 0).toLocaleString() + '</span>' +
-          '<span class="sep">·</span>' +
-          '<span>$' + (d.totalRent || 0).toLocaleString() + '/mo</span>' +
-          (deltaHTML ? '<span class="sep">·</span>' + deltaHTML : '') +
-        '</div>' +
-      '</div>' +
-      '<div class="journal-right">' +
-        (d.triage ? '<span class="journal-verdict-pill ' + pillClass + '">' + (TRIAGE_LABELS[d.triage] || d.triage.toUpperCase()) + '</span>' : '') +
-        '<span class="journal-verdict-pill ' + verdictPillClass + '">' + (d.verdict || '?').toUpperCase() + '</span>' +
-        '<button class="journal-del-btn" onclick="event.stopPropagation();deleteDeal(' + d.id + ')">×</button>' +
-      '</div>' +
-    '</div>';
-  }).join('');
+
+    const row = document.createElement('div');
+    row.className = 'journal-row' + (sel ? ' selected' : '');
+    row.addEventListener('click', function () { loadDeal(d.id); });
+
+    rpcAppendTextElement(row, 'div', 'journal-dot ' + dotToken(d.triage), '');
+
+    const body = document.createElement('div');
+    body.className = 'journal-body';
+
+    const addrEl = document.createElement('div');
+    addrEl.className = 'journal-addr';
+    addrEl.appendChild(document.createTextNode(String(d.address || 'No address')));
+    // §5: a valid stored URL links; an invalid legacy value stays inert and is
+    // NOT rewritten or deleted — it simply renders no anchor, on every render.
+    const link = rpcCreateListingLink(d.url, 'url-ico', '\u2197');
+    if (link) {
+      link.addEventListener('click', function (event) { event.stopPropagation(); });
+      addrEl.appendChild(document.createTextNode(' '));
+      addrEl.appendChild(link);
+    }
+    body.appendChild(addrEl);
+
+    const meta = document.createElement('div');
+    meta.className = 'journal-meta';
+    rpcAppendTextElement(meta, 'span', '', String(d.propertyType || '?') + '-unit');
+    rpcAppendTextElement(meta, 'span', 'sep', '\u00b7');
+    rpcAppendTextElement(meta, 'span', '', '$' + (d.price || 0).toLocaleString());
+    rpcAppendTextElement(meta, 'span', 'sep', '\u00b7');
+    rpcAppendTextElement(meta, 'span', '', '$' + (d.totalRent || 0).toLocaleString() + '/mo');
+    if (delta !== null) {
+      rpcAppendTextElement(meta, 'span', 'sep', '\u00b7');
+      rpcAppendTextElement(meta, 'span', delta >= 0 ? 'delta-pos' : 'delta-neg',
+        (delta >= 0 ? '+' : '') + '$' + Math.round(Math.abs(delta)).toLocaleString() + ' MAO');
+    }
+    body.appendChild(meta);
+    row.appendChild(body);
+
+    const right = document.createElement('div');
+    right.className = 'journal-right';
+    if (d.triage) {
+      rpcAppendTextElement(right, 'span',
+        'journal-verdict-pill ' + (own(TRIAGE_PILL_CLASS, d.triage) || 'warn'),
+        own(TRIAGE_LABELS, d.triage) || String(d.triage).toUpperCase());
+    }
+    rpcAppendTextElement(right, 'span', 'journal-verdict-pill ' + verdictPillClass,
+      String(d.verdict || '?').toUpperCase());
+    const del = document.createElement('button');
+    del.className = 'journal-del-btn';
+    del.textContent = '\u00d7';
+    del.addEventListener('click', function (event) {
+      event.stopPropagation();
+      deleteDeal(d.id);
+    });
+    right.appendChild(del);
+    row.appendChild(right);
+
+    listEl.appendChild(row);
+  });
 }
 
 function loadDeal(id) {
@@ -7178,18 +7596,48 @@ function openCompare() {
   if (deals.length < 2) { toast('Select at least 2 deals to compare'); return; }
   const body = $('compareBody');
   if (!body) return;
-  const cols = deals.map(d => `
-    <div style="flex:1;min-width:180px;padding:12px;border:1px solid var(--border);border-radius:var(--r-sm);">
-      <div style="font-size:12px;font-weight:700;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.address || 'No address'}</div>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">
-        <div>Price: $${(d.price||0).toLocaleString()}</div>
-        <div>Rent: $${(d.totalRent||0).toLocaleString()}/mo</div>
-        <div>MAO: ${d.MAO > 0 ? '$'+d.MAO.toLocaleString() : '—'}</div>
-        <div>Verdict: <span style="color:${d.verdict==='pass'?'var(--green)':d.verdict==='fail'?'var(--red)':'var(--amber)'}">${(d.verdict||'?').toUpperCase()}</span></div>
-        <div>Triage: ${(d.triage||'none').toUpperCase()}</div>
-      </div>
-    </div>`).join('');
-  body.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:10px;">' + cols + '</div>';
+  // ── Batch 8B §2.4 ──────────────────────────────────────────────────────────
+  // Same closure as the journal rows: persisted address and enum/string fields
+  // reach the overlay as text nodes. The inline style strings are static and are
+  // reapplied verbatim, so the overlay's appearance is unchanged; the only
+  // computed style is the verdict colour, chosen from a closed three-way set.
+  rpcClearElement(body);
+  const wrap = document.createElement('div');
+  wrap.setAttribute('style', 'display:flex;flex-wrap:wrap;gap:10px;');
+
+  deals.forEach(function (d) {
+    const col = document.createElement('div');
+    col.setAttribute('style',
+      'flex:1;min-width:180px;padding:12px;border:1px solid var(--border);border-radius:var(--r-sm);');
+
+    const head = document.createElement('div');
+    head.setAttribute('style',
+      'font-size:12px;font-weight:700;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;');
+    head.textContent = String(d.address || 'No address');
+    col.appendChild(head);
+
+    const stats = document.createElement('div');
+    stats.setAttribute('style', 'font-size:11px;color:var(--text3);font-family:var(--mono);');
+    rpcAppendTextElement(stats, 'div', '', 'Price: $' + (d.price || 0).toLocaleString());
+    rpcAppendTextElement(stats, 'div', '', 'Rent: $' + (d.totalRent || 0).toLocaleString() + '/mo');
+    rpcAppendTextElement(stats, 'div', '',
+      'MAO: ' + (d.MAO > 0 ? '$' + d.MAO.toLocaleString() : '\u2014'));
+
+    const verdictRow = document.createElement('div');
+    verdictRow.appendChild(document.createTextNode('Verdict: '));
+    const verdictSpan = document.createElement('span');
+    verdictSpan.setAttribute('style', 'color:' + (d.verdict === 'pass' ? 'var(--green)'
+      : d.verdict === 'fail' ? 'var(--red)' : 'var(--amber)'));
+    verdictSpan.textContent = String(d.verdict || '?').toUpperCase();
+    verdictRow.appendChild(verdictSpan);
+    stats.appendChild(verdictRow);
+
+    rpcAppendTextElement(stats, 'div', '', 'Triage: ' + String(d.triage || 'none').toUpperCase());
+    col.appendChild(stats);
+    wrap.appendChild(col);
+  });
+
+  body.appendChild(wrap);
   $('compareOverlay').style.display = 'flex';
 }
 
