@@ -4,6 +4,18 @@
   House Hack Edition — Minnesota / Twin Cities
   All formulas verified against BiggerPockets Four Square Method
 
+  v7.3.2 changes:
+  - Insurance default now uses 1% of purchase price when no user/listing/quote value is provided
+
+  v7.3.1 changes (Batch 3/4, 2026-07-02 audit fixes):
+  - Cash-band basis now includes 2×PITI prepaids in BOTH modes (backend parity)
+  - Seller credits capped at closing + prepaids (usable = min(program cap, eligible));
+    credits can never reduce down payment, reserves, or repairs — Full + Rapid + lender line
+  - Over-ceiling-with-credits is now a FAIL in both tiers (fail_near_ceiling /
+    fail_far_over_ceiling), matching backend audit P1-2; "manual_review = warn" removed
+  - FHA-Test MAO uses unit market rents only (excl. other income), matching the SST gate
+  - Rapid MAO FHA constraint respects the configurable SST haircut (was hardcoded 0.75)
+
   v7.3 changes (from v7.2):
   - Rapid mode now mirrors Full mode: Scenario B 3-state bands (+$150 pass / $0–149 weak / <$0 fail)
   - Rapid MAO solves Scenario B at +$150 target (parity with Full); stress stays $0 survival
@@ -11,7 +23,9 @@
   - Review bucket renders in BOTH modes; PRICE_DROP_WATCH reachable (real MAO gap fed in)
   - targetCF: empty → 150 default; explicit 0 honored as 0
   - FHA self-sufficiency: single source of truth, configurable haircut, market-rent base (excl. other income)
-  - Scenario A MAO split into clean ($2,600) target + ceiling ($3,200) lines; clean binds headline
+  - [RETIRED by Batch 7B 2026-07-16] Scenario A MAO split into clean ($2,600) target + ceiling ($3,200) lines; clean binds headline
+    Superseded: Scenario A now uses strong $1,500 / workable $2,500 / absolute ceiling $3,200,
+    and the headline binds on the WORKABLE $2,500 solve. Retained as v7.3 history only.
   - Decision card shows bucket / action / why / top blockers
   - Reset restores ownerUnitUtilitiesMonthly + sstHaircutInput; one-time targetCF=0→150 migration
 
@@ -278,6 +292,32 @@ body {
   gap: 6px;
   margin-bottom: 16px;
   padding: 0 4px;
+}
+/* Batch 7C — owner-unit mode + per-unit Scenario A sensitivity */
+.owner-unit-mode { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.4; }
+.owner-unit-sens { margin-top: 6px; font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.ou-sens-head, .ou-sens-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.9fr 1.3fr 0.9fr;
+  gap: 4px;
+  padding: 2px 0;
+}
+.ou-sens-head { color: var(--text4); text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--line, #eee); }
+.ou-sens-row.selected { color: var(--text1); font-weight: 700; }
+
+/* Batch 7B — Rapid Scenario A sub-MAOs + equal-rent quick-screen disclosure */
+.rapid-sa {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.rapid-assumption {
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--text4);
+  margin-top: 2px;
 }
 .gate-pill {
   font-family: var(--mono);
@@ -1566,6 +1606,77 @@ select {
 }
 .help-btn:hover, .help-btn:active { background: var(--accent); color: white; }
 
+/* ─── Batch 2: paid-call budget counter + Fetch & Analyze preview ─── */
+.rpc-call-budget {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text4);
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+}
+.rpc-pv-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 60;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.rpc-pv-overlay.show { display: flex; }
+.rpc-pv-box {
+  background: var(--bg2, #fff);
+  border-radius: 10px;
+  padding: 18px;
+  max-width: 720px;
+  width: 100%;
+  max-height: 84vh;
+  overflow: auto;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+}
+.rpc-pv-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.rpc-pv-note { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+.rpc-pv-info {
+  font-size: 12px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: rgba(124,58,237,0.08);
+}
+.rpc-pv-warn {
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(220,38,38,0.10);
+}
+.rpc-pv-cmp { display: flex; gap: 8px; align-items: baseline; margin-top: 6px; font-size: 12px; }
+.rpc-pv-cmp span { color: var(--text3); min-width: 112px; }
+.rpc-pv-cmp code { font-family: var(--mono); font-size: 11px; word-break: break-word; }
+.rpc-pv-head, .rpc-pv-row {
+  display: grid;
+  grid-template-columns: 22px 1.4fr 1fr 14px 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  padding: 5px 0;
+}
+.rpc-pv-head {
+  grid-template-columns: 1.4fr 1fr 14px 1fr 1fr;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text4);
+  border-bottom: 1px solid var(--line, #e5e7eb);
+}
+.rpc-pv-row { border-bottom: 1px solid var(--line, #f1f1f1); cursor: pointer; }
+.rpc-pv-field { font-weight: 600; }
+.rpc-pv-cur { font-family: var(--mono); color: var(--text3); }
+.rpc-pv-arrow { color: var(--text4); text-align: center; }
+.rpc-pv-new { font-family: var(--mono); font-weight: 700; }
+.rpc-pv-src { font-size: 10px; color: var(--text4); }
+.rpc-pv-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+
 .help-overlay {
   position: fixed;
   inset: 0;
@@ -1743,7 +1854,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
 <!-- ═══ MODE TOGGLE ═══ -->
 <div class="mode-toggle">
   <button class="mode-btn active" id="modeRapid" onclick="setMode('rapid')">⚡ Rapid Screen</button>
-  <button class="mode-btn" id="modeFull" onclick="setMode('full')">⊞ Full Analysis</button>
+  <button class="mode-btn" id="modeFull" onclick="if(currentMode !== 'full') expandToFull()">⊞ Full Analysis</button>
 </div>
 
 <!-- ═══ TOOLBAR ═══ -->
@@ -1787,6 +1898,20 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
 <div class="toast" id="toast"></div>
 
 <!-- ═══ HELP MODAL ═══ -->
+<!-- Batch 2: proposed-changes preview. Fetch & Analyze never mutates the form
+     until Apply is pressed; Cancel/close leaves every value unchanged. -->
+<div class="rpc-pv-overlay" id="fetchPreviewOverlay" onclick="if(event.target===this)rpcCancelPreview()">
+  <div class="rpc-pv-box">
+    <div class="rpc-pv-title">Proposed changes from Fetch &amp; Analyze</div>
+    <div class="rpc-pv-note">Nothing has been changed yet. Review each field, then Apply.</div>
+    <div id="fetchPreviewBody"></div>
+    <div class="rpc-pv-actions">
+      <button class="tool-btn" id="fetchPreviewCancel" onclick="rpcCancelPreview()">Cancel</button>
+      <button class="tool-btn primary" id="fetchPreviewApply" onclick="rpcApplyPreview()">Apply selected</button>
+    </div>
+  </div>
+</div>
+
 <div class="help-overlay" id="helpOverlay" onclick="if(event.target===this)closeHelp()">
   <div class="help-modal">
     <div class="help-modal-hd">
@@ -1966,6 +2091,9 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
       <div style="font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-1px;" id="r-maoPrice">—</div>
     </div>
     <div style="font-size:12px;color:var(--text3);" id="r-maoDelta">Enter price and rent to calculate</div>
+    <!-- Batch 7B: Rapid Scenario A sub-MAOs + equal-rent quick-screen disclosure -->
+    <div id="r-maoScenarioA" class="rapid-sa"></div>
+    <div id="r-saPill" class="gate-pill"></div>
   </div>
 
   <!-- Comp links for rapid mode -->
@@ -2027,6 +2155,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
         <input type="text" id="address" placeholder="e.g. 1234 Elm St, Minneapolis, MN 55408" autocomplete="street-address" style="flex:1;">
         <button id="btn-fetch" class="tool-btn primary" onclick="fetchAndAnalyze()" style="white-space:nowrap;padding:8px 14px;">&#x26A1; Fetch &amp; Analyze</button>
       </div>
+      <div class="rpc-call-budget" id="fetchCallBudget" data-remaining="10">RentCast calls remaining: 10 / 10</div>
     </div>
     <div class="field">
       <label class="field-label">Listing URL <span style="font-weight:400;color:var(--text4);font-size:11px;">(optional)</span></label>
@@ -2118,7 +2247,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
       <div class="field">
         <label class="field-label">Interest Rate</label>
         <div class="input-wrap" data-suf="%">
-          <input type="number" id="rate" value="7.0" step="0.125" oninput="calc()"><span class="suf">%</span>
+          <input type="number" id="rate" value="6.25" step="0.125" oninput="calc()"><span class="suf">%</span>
         </div>
       </div>
       <div class="field">
@@ -2286,11 +2415,14 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
     <div class="field-row">
       <div class="field">
         <label class="field-label">Unit You'll Live In</label>
-        <select id="ownerUnit" onchange="calc()"></select>
+        <select id="ownerUnit" onchange="onOwnerUnitPicked()"></select>
+        <div id="ownerUnitMode" class="owner-unit-mode"></div>
+        <button type="button" id="ownerUnitAutoBtn" class="tool-btn" onclick="returnOwnerUnitToAuto()" style="margin-top:4px;font-size:11px;padding:3px 8px;">Return to Auto</button>
+        <div id="ownerUnitSensitivity" class="owner-unit-sens"></div>
       </div>
       <div class="field">
         <label class="field-label">Max Monthly Housing Cost <button class="help-btn" onclick="showHelp('comfortcap')">?</button></label>
-        <span class="field-hint">Pain ceiling, not a goal — RPC v2 clean target is $2,600, hard ceiling $3,200</span>
+        <span class="field-hint">Pain ceiling, not a goal — RPC v2 bands: strong ≤ $1,500, workable ≤ $2,500, weak ≤ $3,200, fail above</span>
         <div class="input-wrap" data-pre="$"><span class="pre">$</span>
           <input type="number" id="comfortCap" value="3200" oninput="calc()">
         </div>
@@ -2408,7 +2540,7 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
   </div>
   <div class="card-body">
     <div class="explain">
-      <strong>This is the most important test.</strong> Scenario A = you live there, tenants offset your mortgage. Scenario B = you've moved out, all units rented. <strong>RPC v2 target: Scenario A clean ≤ $2,600, ceiling $3,200; Scenario B target ≥ +$150/mo. Breakeven is weak, not clean.</strong>
+      <strong>This is the most important test.</strong> Scenario A = you live there, tenants offset your mortgage. Scenario B = you've moved out, all units rented. <strong>RPC v2 bands: Scenario A strong ≤ $1,500, workable ≤ $2,500, weak ≤ $3,200, fail above the $3,200 ceiling; Scenario B target ≥ +$150/mo. Breakeven is weak, not strong.</strong>
     </div>
     <div class="scenario-grid">
       <div class="scen">
@@ -2658,6 +2790,387 @@ input[data-autofilled="true"], select[data-autofilled="true"] {
 // Updated by saveProxyUrl() when user saves a URL in API settings
 let PROXY = localStorage.getItem('rpc-proxy-url') || 'https://rpc-proxy.prestigiouslegacies.workers.dev';
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Batch 2 — Fetch & Analyze safety core (address identity, paid-call budget)
+
+   Pure, offline-testable helpers. No credential behavior is touched here; see
+   getApiKey() which is intentionally unchanged.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Address identity ───────────────────────────────────────────────────────
+   A fetched property is trusted only when the requested address and the Census
+   matchedAddress agree on normalized street number, street name, terminal
+   street-suffix class, and 5-digit ZIP. Variants within one suffix class
+   (Street/St) are equivalent; city spelling is NOT identity; unit/apt
+   designators are ignored (whole-property 2-4 unit tool).
+   Fails closed: incomplete identity is "unavailable", never a guess. */
+
+const RPC_STREET_SUFFIXES = {
+  street: 'st', st: 'st',
+  avenue: 'ave', ave: 'ave', av: 'ave',
+  road: 'rd', rd: 'rd',
+  drive: 'dr', dr: 'dr',
+  lane: 'ln', ln: 'ln',
+  boulevard: 'blvd', blvd: 'blvd',
+  court: 'ct', ct: 'ct',
+  place: 'pl', pl: 'pl',
+  terrace: 'ter', ter: 'ter',
+  parkway: 'pkwy', pkwy: 'pkwy',
+  circle: 'cir', cir: 'cir',
+  trail: 'trl', trl: 'trl',
+  way: 'way',
+  highway: 'hwy', hwy: 'hwy',
+  square: 'sq', sq: 'sq',
+  crossing: 'xing', xing: 'xing',
+  point: 'pt', pt: 'pt',
+  parkwaynorth: 'pkwy'
+};
+const RPC_DIRECTIONALS = {
+  north: 'n', n: 'n', south: 's', s: 's', east: 'e', e: 'e', west: 'w', w: 'w',
+  northeast: 'ne', ne: 'ne', northwest: 'nw', nw: 'nw',
+  southeast: 'se', se: 'se', southwest: 'sw', sw: 'sw'
+};
+// Unit designators are dropped: this is a whole-property calculator.
+const RPC_UNIT_WORDS = /^(apt|apartment|unit|ste|suite|#|no|number|fl|floor|rm|room|bldg|building|lot|trlr|space|spc)$/;
+
+function rpcExtractZip5(s) {
+  const m = String(s == null ? '' : s).match(/\b(\d{5})(?:-\d{4})?\b/g);
+  if (!m || !m.length) return null;
+  // Prefer the LAST 5-digit group: street numbers can also be 5 digits.
+  const last = m[m.length - 1].match(/\d{5}/);
+  return last ? last[0] : null;
+}
+
+/** Canonical identity for an address string, or null when untrustworthy. */
+function rpcAddressIdentity(address) {
+  const raw = String(address == null ? '' : address).trim();
+  if (!raw) return null;
+  const zip = rpcExtractZip5(raw);
+  // Comma-delimited input uses the first segment. For common comma-less input,
+  // a recognized street suffix must safely terminate the street identity;
+  // without that boundary the address is ambiguous and fails closed.
+  let streetLine = '';
+  const commaAt = raw.indexOf(',');
+  if (commaAt >= 0) {
+    streetLine = raw.slice(0, commaAt);
+  } else {
+    const allCleaned = raw.toLowerCase().replace(/[^a-z0-9\s#]/g, ' ').replace(/\s+/g, ' ').trim();
+    const allTokens = allCleaned.split(' ').filter(Boolean);
+    const suffixCandidates = [];
+    // Require a number, at least one street-name token, then a known suffix.
+    for (let i = 2; i < allTokens.length; i++) {
+      if (RPC_STREET_SUFFIXES[allTokens[i]]) suffixCandidates.push(i);
+    }
+    // Multiple plausible boundaries (for example "Park Place Dr ...") are not
+    // guessed in comma-less input. Comma-delimited input remains available for
+    // street names that themselves contain a suffix-like token.
+    if (suffixCandidates.length !== 1) return null;
+    const suffixAt = suffixCandidates[0];
+    let end = suffixAt + 1;
+    // A directional immediately after the suffix is a post-directional.
+    if (RPC_DIRECTIONALS[allTokens[end]]) end++;
+    streetLine = allTokens.slice(0, end).join(' ');
+  }
+  const cleaned = streetLine.toLowerCase().replace(/[^a-z0-9\s#]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return null;
+  const tokens = cleaned.split(' ').filter(Boolean);
+  if (!tokens.length) return null;
+
+  // Street number: the leading numeric token (may carry a letter, e.g. 12b).
+  const numberTok = tokens[0];
+  if (!/^\d+[a-z]?$/.test(numberTok)) return null;   // no trustworthy number
+  const number = numberTok;
+
+  let rest = tokens.slice(1);
+  // Unit designators terminate the whole-property street line before terminal
+  // suffix analysis ("Elm St Apt 2" retains suffix=st and ignores Apt 2).
+  const unitAt = rest.findIndex(function (t) {
+    return RPC_UNIT_WORDS.test(t) || /^#/.test(t);
+  });
+  if (unitAt >= 0) rest = rest.slice(0, unitAt);
+  while (rest.length && /^\d{5}$/.test(rest[rest.length - 1]) &&
+         zip && rest[rest.length - 1] === zip) rest.pop();
+
+  const dirs = [];
+  // A post-directional may follow the terminal suffix. Remove it first so the
+  // suffix immediately before it is still recognized as terminal identity.
+  if (rest.length && RPC_DIRECTIONALS[rest[rest.length - 1]]) {
+    dirs.push(RPC_DIRECTIONALS[rest.pop()]);
+  }
+  let suffix = '';
+  if (rest.length && RPC_STREET_SUFFIXES[rest[rest.length - 1]]) {
+    suffix = RPC_STREET_SUFFIXES[rest.pop()];
+  }
+
+  const nameTokens = [];
+  for (let i = 0; i < rest.length; i++) {
+    let t = rest[i];
+    if (RPC_DIRECTIONALS[t]) { dirs.push(RPC_DIRECTIONALS[t]); continue; }
+    // Only the terminal suffix is classification. A suffix-like token inside
+    // the name ("Park Place Dr", "St Louis St") remains name identity.
+    if (/^\d{5}$/.test(t) && zip && t === zip) continue;
+    nameTokens.push(t);
+  }
+  if (!nameTokens.length) return null;                // no trustworthy street name
+  if (!zip) return null;                              // no trustworthy 5-digit ZIP
+  return {
+    number: number,
+    name: nameTokens.join(' '),
+    dirs: dirs.slice().sort().join(','),
+    suffix: suffix,
+    zip: zip
+  };
+}
+
+/**
+ * Compare a requested address to the Census matchedAddress.
+ * Returns { ok:true, identity } or { ok:false, reason, requested, returned }.
+ * Fails CLOSED — callers must issue zero paid calls and mutate zero fields
+ * whenever ok is false.
+ */
+function rpcAddressMatch(requested, returned) {
+  const a = rpcAddressIdentity(requested);
+  const b = rpcAddressIdentity(returned);
+  if (!a || !b) {
+    return {
+      ok: false,
+      reason: 'unavailable',
+      detail: 'Could not read a trustworthy street number, street name, and 5-digit ZIP from ' +
+              (!a ? 'the address you entered' : 'the address the Census returned') + '.',
+      requested: String(requested == null ? '' : requested),
+      returned: String(returned == null ? '' : returned)
+    };
+  }
+  const diffs = [];
+  if (a.number !== b.number) diffs.push('street number');
+  if (a.name !== b.name) diffs.push('street name');
+  if (a.suffix !== b.suffix) diffs.push('street suffix');
+  if (a.zip !== b.zip) diffs.push('ZIP');
+  // Directionals are strict property identity. Missing on either side differs;
+  // spelling variants (W/West) already normalize to the same canonical value.
+  if (a.dirs !== b.dirs) diffs.push('directional');
+  if (diffs.length) {
+    return {
+      ok: false,
+      reason: 'mismatch',
+      detail: 'Census returned a different property (' + diffs.join(', ') + ' differs).',
+      requested: String(requested == null ? '' : requested),
+      returned: String(returned == null ? '' : returned)
+    };
+  }
+  return { ok: true, identity: a };
+}
+
+/* ─── Batch 8A §3.3: per-deal generation token ───────────────────────────────
+   newDeal() increments this token. Every Fetch & Analyze transaction, pending
+   preview, and Pull Comps request captures the generation it started under; a
+   result that lands after a reset applies zero fields, opens no preview,
+   repopulates no cleared UI, and never refunds an already-issued paid call. */
+
+let _rpcDealGeneration = 0;
+
+/** Read-only accessor (deterministic test seam). */
+function rpcDealGeneration() { return _rpcDealGeneration; }
+
+/** True while `gen` is still the live deal generation. */
+function rpcGenerationCurrent(gen) { return gen === _rpcDealGeneration; }
+
+function rpcStaleGenerationError(stage, expected, current) {
+  const err = new Error(
+    'A new deal was started while Fetch & Analyze was running. The fetched ' +
+    'proposal was discarded and nothing was changed.');
+  err.rpcStaleGeneration = { stage: stage, expected: expected, current: current };
+  return err;
+}
+
+/* ─── Batch 8A §2: Deal Journal property identity ────────────────────────────
+   The journal reuses the hardened rpcAddressIdentity() tokenizer above — there
+   is deliberately no second, weaker address parser. The visible address and the
+   separate ZIP control are combined BEFORE tokenizing; when both carry a ZIP and
+   the two disagree the identity is unavailable (fail closed) and the journal is
+   restricted to its existing exact raw address+ZIP match. */
+
+function rpcJournalIdentity(addressText, zipText) {
+  const addr = String(addressText == null ? '' : addressText).trim();
+  if (!addr) return null;
+  const zipRaw = String(zipText == null ? '' : zipText).trim();
+  const zipControl = /^\d{5}$/.test(zipRaw) ? zipRaw : null;
+  const zipInAddress = rpcExtractZip5(addr);
+  if (zipInAddress && zipControl && zipInAddress !== zipControl) return null;
+  const combined = zipInAddress ? addr : (zipControl ? addr + ' ' + zipControl : addr);
+  return rpcAddressIdentity(combined);
+}
+
+/**
+ * Canonical versioned journal key, or '' when identity is untrustworthy.
+ * Content: journal-v2|number|name|dirs|suffix|zip — street number, normalized
+ * street-name tokens, normalized directional set, terminal suffix class, ZIP.
+ */
+function rpcJournalKeyV2(identity) {
+  if (!identity) return '';
+  return 'journal-v2|' + identity.number + '|' + identity.name + '|' +
+         identity.dirs + '|' + identity.suffix + '|' + identity.zip;
+}
+
+/**
+ * A stored key when the entry already carries one, otherwise a key derived
+ * lazily IN MEMORY. Nothing is written back here: enrichment is persisted only
+ * on the single entry a triage actually updates (no bulk migration).
+ */
+function rpcJournalEntryKeyV2(entry) {
+  if (!entry) return '';
+  if (typeof entry.journalKeyV2 === 'string' && entry.journalKeyV2) return entry.journalKeyV2;
+  return rpcJournalKeyV2(rpcJournalIdentity(entry.address, entry.zip));
+}
+
+/* ─── Paid RentCast call budget (browser session) ────────────────────────────
+   Exactly 10 paid RentCast HTTP requests per browser session, shared by Fetch &
+   Analyze and Pull Comps. Stored in sessionStorage (per spec) so a reload keeps
+   the count and a new session resets it. Every ISSUED request counts, including
+   failures/401/429/network errors — the request was made either way. Free
+   services (Census, HUD, FEMA, ZORI) never count. */
+
+const RPC_CALL_BUDGET_MAX = 10;
+const RPC_CALL_BUDGET_KEY = 'rpc-rentcast-calls-used';
+
+function rpcBudgetStore() {
+  try { return window.sessionStorage; } catch (e) { return null; }
+}
+/** Paid calls already issued this session (clamped to 0..MAX). */
+function rpcCallsUsed() {
+  const s = rpcBudgetStore();
+  if (!s) return 0;
+  let n = parseInt(s.getItem(RPC_CALL_BUDGET_KEY), 10);
+  if (!Number.isFinite(n) || n < 0) n = 0;
+  if (n > RPC_CALL_BUDGET_MAX) n = RPC_CALL_BUDGET_MAX;
+  return n;
+}
+function rpcCallsRemaining() { return Math.max(0, RPC_CALL_BUDGET_MAX - rpcCallsUsed()); }
+
+/**
+ * Atomically reserve n paid calls BEFORE any request is issued. Returns true on
+ * success. A batch that cannot be fully reserved reserves nothing (all-or-none),
+ * so a multi-call Fetch & Analyze never issues a partial run. Because the
+ * reservation is written before any await, concurrent/double-click paths cannot
+ * oversubscribe: the second caller reads the already-incremented value.
+ */
+function rpcReserveCalls(n) {
+  const need = Math.max(0, parseInt(n, 10) || 0);
+  if (need === 0) return true;
+  const s = rpcBudgetStore();
+  if (!s) return false;                       // no sessionStorage → fail closed
+  const used = rpcCallsUsed();
+  if (used + need > RPC_CALL_BUDGET_MAX) return false;
+  s.setItem(RPC_CALL_BUDGET_KEY, String(used + need));
+  rpcRenderCallBudget();
+  return true;
+}
+/** Release an unused reservation (only for calls that were never issued). */
+function rpcReleaseCalls(n) {
+  const back = Math.max(0, parseInt(n, 10) || 0);
+  if (!back) return;
+  const s = rpcBudgetStore();
+  if (!s) return;
+  s.setItem(RPC_CALL_BUDGET_KEY, String(Math.max(0, rpcCallsUsed() - back)));
+  rpcRenderCallBudget();
+}
+
+/** Update every on-screen "RentCast calls remaining: N / 10" counter. */
+function rpcRenderCallBudget() {
+  const remaining = rpcCallsRemaining();
+  const els = document.querySelectorAll('.rpc-call-budget');
+  for (let i = 0; i < els.length; i++) {
+    els[i].textContent = 'RentCast calls remaining: ' + remaining + ' / ' + RPC_CALL_BUDGET_MAX;
+    els[i].setAttribute('data-remaining', String(remaining));
+  }
+}
+
+/**
+ * Plan the RentCast AVM requests for the units currently on screen: one request
+ * per UNIQUE bedroom count (never a hard-coded 2BR). Returns an array of
+ * { beds:Number, units:[index,…] } in ascending bedroom order.
+ */
+function rpcPlanRentRequests() {
+  const n = parseInt(($('propType') || {}).value, 10) || 0;
+  const groups = {};
+  for (let i = 0; i < n; i++) {
+    const el = $('beds' + i);
+    if (!el) continue;
+    const b = parseInt(el.value, 10);
+    if (!Number.isFinite(b)) continue;
+    if (!groups[b]) groups[b] = [];
+    groups[b].push(i);
+  }
+  return Object.keys(groups)
+    .map(function (k) { return { beds: parseInt(k, 10), units: groups[k] }; })
+    .sort(function (x, y) { return x.beds - y.beds; });
+}
+
+/**
+ * Deterministic identity of the live unit plan: property/unit count plus the
+ * ordered (unit index, bedroom count) values. Any missing/invalid control is
+ * represented explicitly so a malformed or rebuilt form cannot compare equal
+ * to a valid plan by accident.
+ */
+function rpcUnitPlanFingerprint() {
+  const prop = $('propType');
+  const rawCount = prop ? String(prop.value) : '(missing)';
+  const n = parseInt(rawCount, 10);
+  if (!Number.isInteger(n) || n < 0) return 'count=' + rawCount + '|invalid';
+  const units = [];
+  for (let i = 0; i < n; i++) {
+    const el = $('beds' + i);
+    const rawBeds = el ? String(el.value) : '(missing)';
+    const beds = parseInt(rawBeds, 10);
+    units.push(i + ':' + (Number.isInteger(beds) ? beds : rawBeds));
+  }
+  return 'count=' + n + '|units=' + units.join(',');
+}
+
+function rpcStaleUnitPlanError(stage, expected, current) {
+  const err = new Error(
+    'The property type or unit bedroom mix changed while Fetch & Analyze was running. ' +
+    'The fetched proposal was discarded; review the unit mix and fetch again.');
+  err.rpcStaleUnitPlan = { stage: stage, expected: expected, current: current };
+  return err;
+}
+
+/** Trimmed visible address used as part of Fetch & Analyze transaction state. */
+function rpcRequestedAddressSnapshot() {
+  const el = $('address');
+  return el ? String(el.value).trim() : '(missing)';
+}
+
+function rpcStaleAddressError(stage, expected, current) {
+  const err = new Error(
+    'The requested address changed while Fetch & Analyze was running. ' +
+    'The fetched proposal was discarded; review the address and fetch again.');
+  err.rpcStaleAddress = { stage: stage, expected: expected, current: current };
+  return err;
+}
+
+/** Finite positive numeric source value, or null when unusable. */
+function rpcPositiveNumber(value) {
+  if (typeof value === 'string') {
+    if (!value.trim()) return null;
+  } else if (typeof value !== 'number') {
+    return null;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** HUD FMR field name for a bedroom count (conservative fallback/floor). */
+const RPC_HUD_BEDROOM_FIELDS = {
+  0: 'Efficiency', 1: 'One-Bedroom', 2: 'Two-Bedroom', 3: 'Three-Bedroom', 4: 'Four-Bedroom'
+};
+function rpcHudFloorForBeds(basicdata, beds) {
+  if (!basicdata) return null;
+  const field = RPC_HUD_BEDROOM_FIELDS[beds];
+  if (!field) return null;
+  return rpcPositiveNumber(basicdata[field]);
+}
+
 async function geocodeCensus(address) {
   const url = 'https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress'
     + '?address=' + encodeURIComponent(address)
@@ -2810,8 +3323,13 @@ function toggle(id) { $(id).classList.toggle('open'); }
 
 
 /* ─── RPC v2 alignment constants (v7.3) ─── */
+// Batch 7B: Scenario A four-band doctrine (Reese 2026-07-10, decisions 1-2).
+// The legacy single "clean pass" line ($2,600) is RETIRED — it has no band,
+// MAO, label, comparison, or fallback role on any surface. History lives in
+// policy/rpc_policy_v1.yaml under retired_thresholds.
 const RPC_V2 = {
-  scenarioAClean: 2600,
+  scenarioAStrong: 1500,
+  scenarioAWorkable: 2500,
   scenarioACeiling: 3200,
   scenarioBTarget: 150,
   cashPreferred: 25000,
@@ -2821,8 +3339,14 @@ const RPC_V2 = {
   maoConditionalGapPct: 0.10
 };
 
+// Four bands with exact boundaries:
+//   <= 1500          strong      (clean pass)
+//   1500.01 - 2500   workable    (acceptable if the rest of the deal is good)
+//   2500.01 - 3200   weak        (conditional)
+//   > 3200           fail        (hard fail unless manually overridden)
 function scenarioABand(cost) {
-  if (cost <= RPC_V2.scenarioAClean) return 'clean';
+  if (cost <= RPC_V2.scenarioAStrong) return 'strong';
+  if (cost <= RPC_V2.scenarioAWorkable) return 'workable';
   if (cost <= RPC_V2.scenarioACeiling) return 'weak';
   return 'fail';
 }
@@ -2835,21 +3359,25 @@ function cashToCloseBand(noCredits, withCredits) {
   if (noCredits <= RPC_V2.cashPreferred) return 'clean';
   if (noCredits <= RPC_V2.cashCeiling) return 'cash_heavy';
   if (withCredits <= RPC_V2.cashCeiling) return 'concession_dependent';
-  if (withCredits <= RPC_V2.cashManualReview) return 'manual_review';
-  return 'fail';
+  // Batch 3 backend parity (audit P1-2): over the ceiling even with max usable
+  // credits is a FAIL in BOTH tiers. The $40k line is severity wording only —
+  // the old 'manual_review = warn' inverted the doctrine.
+  if (withCredits <= RPC_V2.cashManualReview) return 'fail_near_ceiling';
+  return 'fail_far_over_ceiling';
 }
 function cashBandLabel(band) {
   return ({
     clean: 'Clean capital fit',
     cash_heavy: 'Affordable but cash-heavy',
     concession_dependent: 'Needs seller credits',
-    manual_review: 'Manual override / stretch',
-    fail: 'Capital gate fail'
+    fail_near_ceiling: 'Capital gate fail (near ceiling)',
+    fail_far_over_ceiling: 'Capital gate fail (far over)'
   })[band] || '—';
 }
+function isCashFailBand(band) { return typeof band === 'string' && band.indexOf('fail') === 0; }
 function cashBandStatus(band) {
   if (band === 'clean') return 'pass';
-  if (band === 'fail') return 'fail';
+  if (isCashFailBand(band)) return 'fail';
   return 'warn';
 }
 function reviewBucket(ctx) {
@@ -2861,13 +3389,14 @@ function reviewBucket(ctx) {
   if (ctx.bStatus === 'fail') blockers.push('Scenario B cash flow negative');
   else if (ctx.bStatus === 'warn') blockers.push('Scenario B weak (breakeven, < +$150)');
   if (ctx.aBand === 'fail') blockers.push('Live-in cost over $3,200 ceiling');
-  else if (ctx.aBand === 'weak') blockers.push('Live-in cost $2,600–$3,200 (over clean target)');
-  if (ctx.cashBand === 'fail') blockers.push('Cash-to-close over capital gate');
+  else if (ctx.aBand === 'weak') blockers.push('Live-in cost $2,500–$3,200 (weak/conditional)');
+  else if (ctx.aBand === 'workable') blockers.push('Live-in cost $1,500–$2,500 (workable, not strong)');
+  if (isCashFailBand(ctx.cashBand)) blockers.push('Cash-to-close over capital gate');
   else if (ctx.cashBand && ctx.cashBand !== 'clean') blockers.push('Cash-heavy / needs concessions');
   if (ctx.fhaFail) blockers.push('FHA self-sufficiency test fails');
   if (!ctx.stressPass) blockers.push('Fails recession stress test');
 
-  const hardFail = (ctx.aBand === 'fail' || ctx.bStatus === 'fail' || ctx.cashBand === 'fail' || ctx.fhaFail || !ctx.stressPass);
+  const hardFail = (ctx.aBand === 'fail' || ctx.bStatus === 'fail' || isCashFailBand(ctx.cashBand) || ctx.fhaFail || !ctx.stressPass);
   const gap = ctx.maoGapPct || 0;
   const inWatchWindow = gap > RPC_V2.maoConditionalGapPct && gap <= 0.25; // 10–25% over MAO
 
@@ -2884,8 +3413,10 @@ function reviewBucket(ctx) {
   if (inWatchWindow) {
     return { bucket: 'PRICE_DROP_WATCH', action: 'WATCH', note: 'Passes the hard gates, but overpriced vs your targets — math is cleaner near the MAO.', blockers: blockers.length ? blockers : ['Priced above your target MAO'] };
   }
-  if (ctx.aBand === 'clean' && ctx.bStatus === 'pass' && ctx.stressPass && ctx.cashBand === 'clean') {
-    return { bucket: 'TOP_REVIEW', action: 'PURSUE', note: 'Clean math across live-in, move-out, stress, and capital.', blockers: [] };
+  // Batch 7B: TOP_REVIEW stays a genuinely STRONG outcome. A workable
+  // ($1,500–$2,500) live-in cost is acceptable but is never promoted to strong.
+  if (ctx.aBand === 'strong' && ctx.bStatus === 'pass' && ctx.stressPass && ctx.cashBand === 'clean') {
+    return { bucket: 'TOP_REVIEW', action: 'PURSUE', note: 'Strong math across live-in, move-out, stress, and capital.', blockers: [] };
   }
   return { bucket: 'VERIFY_FIRST', action: 'VERIFY', note: 'Promising, but assumptions or capital are not yet clean.', blockers };
 }
@@ -2919,8 +3450,45 @@ const MARKET_RANGES = {
 /* ─── Unit Mix Queue (v7.2 — restored from v6.1) ─── */
 let unitMixQueue = [];
 
+/* Batch 8A v2/C1: provenance for the queue's CONTENTS —
+   { source, generation, propertyKey, rawIdentity }, or null when the queue is
+   empty. 'full-sync' means the values came from a Full form and must prove
+   same-property provenance before they can be transferred back; 'rapid-chips'
+   means they were authored in Rapid from an empty queue for the current deal. */
+let _rpcUnitMixQueueProv = null;
+
+/* Batch 8A v3: whether the Full unit controls hold values that were actually
+   AUTHORED for this deal — by a real rent/bedroom edit, an applied comp or
+   fetch, a journal load, a session resume, or a draft/queue restore — together
+   with the property identity in force when that happened. Controls merely
+   holding their rebuilt defaults never set this, and a rebuild clears it, so
+   explicitness is never inferred from the shape of a value. */
+let _rpcFullAuthored = false;
+let _rpcFullAuthoredIdentity = null;
+
+function rpcMarkFullAuthored() {
+  _rpcFullAuthored = true;
+  _rpcFullAuthoredIdentity = rpcFullIdentity();
+}
+
+function rpcClearFullAuthored() {
+  _rpcFullAuthored = false;
+  _rpcFullAuthoredIdentity = null;
+}
+
+/** Read-only accessors (deterministic test seams). */
+function rpcGetUnitMixQueue() { return unitMixQueue.slice(); }
+function rpcGetUnitMixQueueProvenance() { return _rpcUnitMixQueueProv; }
+function rpcFullAuthored() { return _rpcFullAuthored; }
+function rpcFullAuthoredIdentity() { return _rpcFullAuthoredIdentity; }
+function rpcGetGeo() { return { lat: _geoLat, lng: _geoLng }; }
+
 function addUnitToMix(beds) {
   if (!MARKET_RANGES[beds]) return;
+  // A queue authored from empty in Rapid makes no claim on an earlier property.
+  // Adding to a Full-derived queue does NOT downgrade its provenance: it still
+  // holds that property's values.
+  if (!unitMixQueue.length) _rpcUnitMixQueueProv = rpcCaptureProvenance('rapid-chips', rpcRapidIdentity());
   unitMixQueue.push({ beds, rent: MARKET_RANGES[beds].default });
   renderUnitMixQueue();
   autoFillTotalRentFromMix();
@@ -2928,6 +3496,7 @@ function addUnitToMix(beds) {
 
 function removeUnitFromMix(index) {
   unitMixQueue.splice(index, 1);
+  if (!unitMixQueue.length) _rpcUnitMixQueueProv = null;
   renderUnitMixQueue();
   autoFillTotalRentFromMix();
 }
@@ -2957,6 +3526,8 @@ function autoFillTotalRentFromMix() {
   const rt = $('r-totalRent');
   if (rt) {
     rt.value = total;
+    // v4/Issue 3: derived from the queue, so it inherits the queue's identity.
+    rpcMarkTotalRent(false, _rpcUnitMixQueueProv || rpcRapidIdentity());
     if (typeof rapidCalc === 'function') rapidCalc();
   }
 }
@@ -2987,7 +3558,61 @@ function getCompURL(site, zip, beds) {
   }
 }
 
+/* ── Batch 7C: owner-unit selection mode ──────────────────────────────────
+   Auto (default) selects the LOWEST entered rent so the higher-rent units stay
+   tenant income (Reese decision 1); ties choose Unit 1. An explicit user pick
+   switches to Manual override and is never silently replaced by a rent change.
+   The user can return to Auto explicitly. */
+let _ownerUnitMode = 'auto';   // 'auto' | 'manual'
+
+function rpcOwnerUnitMode() { return _ownerUnitMode; }
+
+/** Lowest entered rent among the current units; ties -> lowest index. */
+function autoOwnerUnitIndex(n) {
+  let best = -1, bestRent = Infinity;
+  for (let i = 0; i < n; i++) {
+    const el = $('rent' + i);
+    if (!el) continue;
+    const v = parseFloat(el.value);
+    if (!isFinite(v) || v < 0) continue;     // fail closed on unusable rents
+    if (v < bestRent) { bestRent = v; best = i; }
+  }
+  return best;
+}
+
+/** Re-evaluate the Auto selection. No-op in Manual mode (§3.3). */
+function applyAutoOwnerUnit() {
+  if (_ownerUnitMode !== 'auto') return;
+  const ow = $('ownerUnit');
+  if (!ow) return;
+  const n = parseInt($('propType').value) || 0;
+  const idx = autoOwnerUnitIndex(n);
+  if (idx >= 0 && idx < n) ow.value = String(idx);
+}
+
+/** An explicit user pick enters Manual override. */
+/** A rent edit re-evaluates Auto (§3.2) but never overrides a Manual pick. */
+function onRentChanged(i) {
+  rpcMarkFullAuthored();   // v3: a real user rent edit, bound to the current identity
+  applyAutoOwnerUnit();
+  calc();
+  updateRange(i);
+}
+
+function onOwnerUnitPicked() {
+  _ownerUnitMode = 'manual';
+  calc();
+}
+
+/** Explicit return to Auto (§3.4): reselect the current lowest rent. */
+function returnOwnerUnitToAuto() {
+  _ownerUnitMode = 'auto';
+  applyAutoOwnerUnit();
+  calc();
+}
+
 function buildRentInputs() {
+  rpcClearFullAuthored();   // v3: rebuilt controls hold defaults, not authored values
   const n = parseInt($('propType').value);
   const ow = $('ownerUnit');
   const prev = parseInt(ow.value) || 0;
@@ -2997,7 +3622,10 @@ function buildRentInputs() {
     o.value = i; o.textContent = `Unit ${i+1}`;
     ow.appendChild(o);
   }
-  if (prev < n) ow.value = prev;
+  // Batch 7C (§3.2/UI-06): a unit-count rebuild must never leave the owner index
+  // out of range. Auto reselects the lowest rent; Manual is clamped, keeping the
+  // user's pick whenever it still exists.
+  if (prev < n) ow.value = prev; else ow.value = String(Math.max(0, n - 1));
 
   const c = $('rentInputs');
   c.innerHTML = '';
@@ -3016,19 +3644,22 @@ function buildRentInputs() {
           <option value="4">4 BR</option>
         </select>
         <div class="input-wrap" data-pre="$"><span class="pre">$</span>
-          <input type="number" id="rent${i}" value="1475" oninput="calc(); updateRange(${i})">
+          <input type="number" id="rent${i}" value="1475" oninput="onRentChanged(${i})">
         </div>
       </div>
       <div class="comp-row">
         ${hasKey ? `<button class="rentcast-btn" id="rcBtn${i}" onclick="pullComps(${i})">Pull Comps</button>` : ''}
         <div class="comp-links" id="compLinks${i}" style="display:contents;"></div>
       </div>
+      ${hasKey ? `<div class="rpc-call-budget" id="compCallBudget${i}" data-remaining="10">RentCast calls remaining: 10 / 10</div>` : ''}
       <div id="compResults${i}"></div>
       <div class="range-bar" id="rangeBar${i}"></div>`;
     c.appendChild(d);
     updateCompLinks(i);
     updateRange(i);
   }
+  rpcRenderCallBudget();   // newly-built counters show the live session remainder
+  applyAutoOwnerUnit();    // Batch 7C: unit-count change re-evaluates Auto (§3.2)
 }
 
 function updateCompLinks(i) {
@@ -3068,11 +3699,13 @@ function updateRange(i) {
 }
 
 function onBedsChange(i) {
+  rpcMarkFullAuthored();   // v3: a real user bedroom choice, bound to the current identity
   const beds = $(`beds${i}`).value;
   const range = MARKET_RANGES[beds] || MARKET_RANGES['1'];
   $(`rent${i}`).value = range.default;
   updateCompLinks(i);
   updateRange(i);
+  applyAutoOwnerUnit();   // Batch 7C v2 (Blocker 4): a beds-driven rent write must reselect the Auto owner unit; no-op in Manual.
   calc();
 }
 
@@ -3181,8 +3814,10 @@ function calc() {
   // Financing
   const downPct = loanType === 'fha' ? 0.035 : 0.05;
   const downPayment = price * downPct;
-  const loanAmt = price - downPayment;
-  const closingCosts = loanAmt * closingPct;
+  const baseLoan = price - downPayment;
+  const ufmip = loanType === 'fha' ? baseLoan * 0.0175 : 0;   // financed up-front MIP (Batch 1 calibration)
+  const loanAmt = baseLoan + ufmip;                           // P&I and MIP use the UFMIP-inclusive loan
+  const closingCosts = baseLoan * closingPct;                 // closing stays on the BASE loan (matches backend)
   let mip = 0;
   if (loanType === 'fha') mip = (loanAmt * 0.0055) / 12;
   else if (loanAmt / price > 0.80) mip = (loanAmt * 0.008) / 12;
@@ -3302,7 +3937,72 @@ function calc() {
   const ownerUtilShare = (utilities + snow) * (1 / n);
   const netHousing = piti + ownerUtilShare - netOffset;
   const aBand = scenarioABand(netHousing);
-  const aStatus = aBand === 'clean' ? 'pass' : aBand === 'weak' ? 'warn' : 'fail';
+
+  // ── Batch 7C: owner-unit mode + per-unit Scenario A sensitivity ─────────
+  // The sensitivity re-runs the SAME Scenario A algebra with the owner in each
+  // entered unit. It is informational: it never changes the selected unit, the
+  // bands, the MAO, or the verdict (§3.5, Reese decision 5).
+  (function renderOwnerUnitPanel() {
+    const modeEl = $('ownerUnitMode');
+    const sensEl = $('ownerUnitSensitivity');
+    if (!modeEl || !sensEl) return;
+
+    const scenarioAFor = (ownerIdx) => {
+      const tRents = rents.filter((_, i) => i !== ownerIdx);
+      const tGSI = tRents.reduce((a, b) => a + b, 0) + otherIncome * (tRents.length / n);
+      const off = (tGSI - tGSI * vacRate) - tGSI * (maintRate + capexRate) - fixedExp * (tRents.length / n);
+      return piti + ownerUtilShare - off;
+    };
+
+    // Mode line — user-derived values reach the DOM as TEXT only.
+    modeEl.textContent = '';
+    const modeLabel = _ownerUnitMode === 'auto'
+      ? 'Auto: lowest-rent eligible unit'
+      : 'Manual override';
+    const strong = document.createElement('strong');
+    strong.textContent = modeLabel;
+    modeEl.appendChild(strong);
+    modeEl.appendChild(document.createTextNode(
+      ` \u00b7 Unit ${ownerUnit + 1} \u00b7 ${fmt(rents[ownerUnit] || 0)}/mo`
+    ));
+    const autoBtn = $('ownerUnitAutoBtn');
+    if (autoBtn) autoBtn.style.display = _ownerUnitMode === 'manual' ? '' : 'none';
+
+    // Compact per-unit sensitivity table, built with created nodes only.
+    sensEl.textContent = '';
+    const selectedCost = scenarioAFor(ownerUnit);
+    const head = document.createElement('div');
+    head.className = 'ou-sens-head';
+    ['Owner unit', 'Rent', 'Scenario A', 'vs selected'].forEach(function (h) {
+      const sp = document.createElement('span');
+      sp.textContent = h;
+      head.appendChild(sp);
+    });
+    sensEl.appendChild(head);
+    for (let i = 0; i < n; i++) {
+      const cost = scenarioAFor(i);
+      const delta = cost - selectedCost;
+      const row = document.createElement('div');
+      row.className = 'ou-sens-row' + (i === ownerUnit ? ' selected' : '');
+      const cells = [
+        `Unit ${i + 1}${i === ownerUnit ? ' \u2190 selected' : ''}`,
+        fmt(rents[i] || 0),
+        `${fmt(cost)} (${scenarioABand(cost)})`,
+        i === ownerUnit ? '\u2014' : `${delta >= 0 ? '+' : ''}${fmt(delta)}`,
+      ];
+      cells.forEach(function (c) {
+        const sp = document.createElement('span');
+        sp.textContent = c;
+        row.appendChild(sp);
+      });
+      sensEl.appendChild(row);
+    }
+  })();
+
+  // Batch 7B status mapping: strong = clean pass; workable and weak are both
+  // conditional warnings (workable is NOT silently promoted to strong); only
+  // above the absolute ceiling is a hard failure.
+  const aStatus = aBand === 'strong' ? 'pass' : aBand === 'fail' ? 'fail' : 'warn';
 
   renderLines('sa-lines', [
     { label: 'Your PITI', value: -piti, neg: true },
@@ -3313,14 +4013,18 @@ function calc() {
     { label: 'Prorated fixed costs', value: -tFixedPro, neg: true },
     { label: 'Net Tenant Offset', value: netOffset, sub: true, ...(netOffset >= 0 ? {pos:true} : {neg:true}) },
     { label: 'Live-In Housing Cost (no reserves)', value: netHousing, total: true, ...(aBand === 'fail' ? {neg:true} : {pos:true}) },
-    { label: `vs clean target (${fmt(RPC_V2.scenarioAClean)})`, value: RPC_V2.scenarioAClean - netHousing, ...(netHousing <= RPC_V2.scenarioAClean ? {pos:true} : {neg:true}) },
+    { label: `vs strong target (${fmt(RPC_V2.scenarioAStrong)})`, value: RPC_V2.scenarioAStrong - netHousing, ...(netHousing <= RPC_V2.scenarioAStrong ? {pos:true} : {neg:true}) },
+    { label: `vs workable target (${fmt(RPC_V2.scenarioAWorkable)})`, value: RPC_V2.scenarioAWorkable - netHousing, ...(netHousing <= RPC_V2.scenarioAWorkable ? {pos:true} : {neg:true}) },
+    { label: `vs absolute ceiling (${fmt(RPC_V2.scenarioACeiling)})`, value: RPC_V2.scenarioACeiling - netHousing, ...(netHousing <= RPC_V2.scenarioACeiling ? {pos:true} : {neg:true}) },
   ]);
   $('sa-hero').textContent = fmt(netHousing);
   $('sa-hero').className = `scen-hero ${aBand === 'fail' ? 'neg' : 'pos'}`;
-  $('sa-cap').textContent = `clean ≤ ${fmt(RPC_V2.scenarioAClean)} · weak to ${fmt(RPC_V2.scenarioACeiling)} ceiling`;
+  $('sa-cap').textContent = `strong ≤ ${fmt(RPC_V2.scenarioAStrong)} · workable ≤ ${fmt(RPC_V2.scenarioAWorkable)} · weak to ${fmt(RPC_V2.scenarioACeiling)} ceiling`;
   const sApass = aStatus;
   $('sa-badge').className = `scen-badge ${sApass}`;
-  $('sa-badge').textContent = aBand === 'clean' ? '✓ CLEAN' : aBand === 'weak' ? '⚠ WEAK' : '✗ FAIL';
+  $('sa-badge').textContent = aBand === 'strong' ? '✓ STRONG'
+    : aBand === 'workable' ? '~ WORKABLE'
+    : aBand === 'weak' ? '⚠ WEAK' : '✗ FAIL';
 
   // True Housing Cost (Y1) — Trench/Curelop metric (v7.1)
   // PITI + owner unit utilities + monthly reserves accrual − net tenant offset
@@ -3389,23 +4093,40 @@ function calc() {
   const remaining = totalCash - deployed;
   const capitalOK = remaining >= minReserve;
   const maxSellerCredit = price * (loanType === 'fha' ? 0.06 : 0.03);
-  const cashNoCredits = totalCashIn;
-  const cashWithCredits = Math.max(0, cashNoCredits - maxSellerCredit);
+  // Batch 3 (audit P0-2/P0-3): prepaids (2× PITI) belong in the cash-band basis
+  // (backend parity), and seller credits can only pay closing + prepaids — never
+  // the down payment, reserves, or repairs. usable = min(program cap, eligible).
+  const prepaidsCTC = piti * 2;
+  const concessionEligible = closingCosts + prepaidsCTC;
+  const usableSellerCredit = Math.min(maxSellerCredit, concessionEligible);
+  const cashNoCredits = totalCashIn + prepaidsCTC;
+  const cashWithCredits = cashNoCredits - usableSellerCredit;
   const cashBand = cashToCloseBand(cashNoCredits, cashWithCredits);
   const sCapital = cashBandStatus(cashBand);
   const fillPct = Math.min(deployed / Math.max(totalCash, 1) * 100, 100);
+
+  // Lender cash-to-close (Batch 3 parity): actual wire amount due at closing =
+  // down + closing + prepaids (2× PITI) − seller credit − earnest. EXCLUDES reserves &
+  // repairs. Does NOT affect totalCash / cash bands / Capital Gate. Seller credit & earnest
+  // are optional inputs (default 0; read safely so they work whether or not the fields exist).
+  // User-entered credit is clamped to eligible costs (Batch 3): the wire can
+  // never drop below downPayment - earnest.
+  const sellerCreditCTC = Math.min(parseFloat(($('sellerCredit') || {}).value) || 0, concessionEligible);
+  const earnestCTC = parseFloat(($('earnestMoney') || {}).value) || 0;
+  const lenderCashToClose = downPayment + closingCosts + prepaidsCTC - sellerCreditCTC - earnestCTC;
 
   $('capBuckets').innerHTML = `
     <div class="cap-b"><div class="cb-lbl">Down Payment</div><div class="cb-val" style="color:var(--accent)">${fmt(downPayment)}</div><div class="cb-sub">${(downPct*100).toFixed(1)}%</div></div>
     <div class="cap-b"><div class="cb-lbl">Closing</div><div class="cb-val" style="color:var(--accent)">${fmt(closingCosts)}</div><div class="cb-sub">${(closingPct*100).toFixed(1)}% of loan</div></div>
     <div class="cap-b"><div class="cb-lbl">Repairs</div><div class="cb-val" style="color:${repairs > 8000 ? 'var(--red)' : 'var(--amber)'}">${fmt(repairs)}</div><div class="cb-sub">${repairs > 8000 ? 'Over $8k!' : 'Within limit'}</div></div>
-    <div class="cap-b"><div class="cb-lbl">Cash Gate</div><div class="cb-val" style="color:${cashBand === 'clean' ? 'var(--green)' : cashBand === 'fail' ? 'var(--red)' : 'var(--amber)'}">${cashBandLabel(cashBand)}</div><div class="cb-sub">${fmt(RPC_V2.cashPreferred)} preferred / ${fmt(RPC_V2.cashCeiling)} ceiling</div></div>`;
+    <div class="cap-b"><div class="cb-lbl">Cash Gate</div><div class="cb-val" style="color:${cashBand === 'clean' ? 'var(--green)' : isCashFailBand(cashBand) ? 'var(--red)' : 'var(--amber)'}">${cashBandLabel(cashBand)}</div><div class="cb-sub">${fmt(RPC_V2.cashPreferred)} preferred / ${fmt(RPC_V2.cashCeiling)} ceiling</div></div>`;
   $('capFill').style.width = fillPct + '%';
   $('capFill').style.background = sCapital === 'pass' ? 'var(--green)' : sCapital === 'warn' ? 'var(--amber)' : 'var(--red)';
   $('capFooter').innerHTML = `
     <div><div class="cfi-lbl">Cash Required</div><div class="cfi-val">${fmt(cashNoCredits)}</div></div>
     <div><div class="cfi-lbl">With Max Credits</div><div class="cfi-val" style="color:${cashWithCredits <= RPC_V2.cashCeiling ? 'var(--green)' : 'var(--red)'}">${fmt(cashWithCredits)}</div></div>
-    <div><div class="cfi-lbl">Cushion After Deployed</div><div class="cfi-val" style="color:${capitalOK ? 'var(--green)' : 'var(--red)'}">${fmt(remaining)}</div></div>`;
+    <div><div class="cfi-lbl">Cushion After Deployed</div><div class="cfi-val" style="color:${capitalOK ? 'var(--green)' : 'var(--red)'}">${fmt(remaining)}</div></div>
+    <div style="grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px; padding-top:8px; border-top:1px dashed var(--border)"><div class="cfi-lbl">Lender cash-to-close <span style="text-transform:none; letter-spacing:0; color:var(--text4)">(at closing · excl. reserves &amp; repairs)</span></div><div class="cfi-val">${fmt(lenderCashToClose)}</div></div>`;
 
   // v7.3: band-aware cash-to-close guidance (reinforces that $25k–$35k is a ceiling, not "easy")
   const capNoteEl = $('capNote');
@@ -3413,9 +4134,9 @@ function calc() {
     const noteMap = {
       clean: { txt: `✓ Clean capital fit — cash-to-close at or under ${fmt(RPC_V2.cashPreferred)}.`, bg: 'var(--surface2)', col: 'var(--text2)' },
       cash_heavy: { txt: `⚠ Affordable but cash-heavy (${fmt(RPC_V2.cashPreferred)}–${fmt(RPC_V2.cashCeiling)}). This is a ceiling, not "easy." Verify lender cash-to-close in writing and preserve post-close reserves.`, bg: '#fff8e6', col: '#92560a' },
-      concession_dependent: { txt: `⚠ Only fits with max seller credits (${loanType === 'fha' ? '6%' : '3%'}). Without concessions you're over the ${fmt(RPC_V2.cashCeiling)} gate. Confirm the seller will actually give credits before counting on this.`, bg: '#fff8e6', col: '#92560a' },
-      manual_review: { txt: `⚠ Stretch / manual review — even with max credits this exceeds ${fmt(RPC_V2.cashCeiling)} (up to ${fmt(RPC_V2.cashManualReview)}). Only proceed if you're deliberately overriding the capital gate.`, bg: '#fff0f0', col: 'var(--red)' },
-      fail: { txt: `✗ Capital gate fail — cash-to-close exceeds ${fmt(RPC_V2.cashManualReview)} even with max credits. Walk unless you manually override.`, bg: '#fff0f0', col: 'var(--red)' },
+      concession_dependent: { txt: `⚠ Only fits with max usable seller credits (${loanType === 'fha' ? '6%' : '3%'} program cap, but never more than closing + prepaids — credits can't touch down payment, reserves, or repairs). Without them you're over the ${fmt(RPC_V2.cashCeiling)} gate. Confirm the seller will actually give credits.`, bg: '#fff8e6', col: '#92560a' },
+      fail_near_ceiling: { txt: `✗ Capital gate fail — even with max usable credits this exceeds the ${fmt(RPC_V2.cashCeiling)} ceiling (within the ${fmt(RPC_V2.cashManualReview)} manual-override range). Walk unless you deliberately override.`, bg: '#fff0f0', col: 'var(--red)' },
+      fail_far_over_ceiling: { txt: `✗ Capital gate fail — cash-to-close exceeds ${fmt(RPC_V2.cashManualReview)} even with max usable credits. Walk unless you manually override.`, bg: '#fff0f0', col: 'var(--red)' },
     };
     const note = noteMap[cashBand];
     if (note && price > 0) {
@@ -3451,7 +4172,18 @@ function calc() {
   const vt = v.querySelector('.verdict-title');
   const vd = v.querySelector('.verdict-desc');
 
-  if (critFails === 0 && hardFails === 0) {
+  // FHA SST precedence (Batch 2/4): a 3-4 unit FHA deal that fails self-sufficiency
+  // cannot be FHA-financed as-is and must rank ahead of any house-hack/pass verdict.
+  const sstShortfall = (fhaRequired && !fhaPasses) ? (piti - fhaNet) : 0;
+  if (fhaRequired && !fhaPasses && sstShortfall > 500) {
+    v.className = 'verdict fail'; vi.textContent = '✗';
+    vt.textContent = 'FHA won\'t finance this 3–4 unit as-is';
+    vd.textContent = `FHA self-sufficiency fails by ${fmt(sstShortfall)}/mo (over $500). Go conventional or raise rents — this can\'t close on FHA at this price.`;
+  } else if (fhaRequired && !fhaPasses) {
+    v.className = 'verdict warn'; vi.textContent = '~';
+    vt.textContent = 'FHA self-sufficiency short — verify before FHA';
+    vd.textContent = `FHA SST fails by ${fmt(sstShortfall)}/mo (within $500). Verify with your lender or nudge rents; otherwise go conventional.`;
+  } else if (critFails === 0 && hardFails === 0) {
     v.className = 'verdict pass'; vi.textContent = '✓';
     vt.textContent = 'This deal passes all tests';
     vd.textContent = 'Every gate cleared. Next step: schedule an inspection, verify rent comps with 3 real listings, and get your lender\'s final numbers before submitting an offer.';
@@ -3467,7 +4199,7 @@ function calc() {
 
   // ── MAO (computed before review bucket so PRICE_DROP_WATCH gap is real) ──
   const tenantOI = otherIncome * (tenantRents.length / n);
-  const maoResult = calcMAO({ n, gsi, tenantGSI, tenantOI, tenantRents, ownerUnit, vacRate, maintRate, capexRate, mgmtRate,
+  const maoResult = calcMAO({ n, gsi, unitRentTotal, tenantGSI, tenantOI, tenantRents, ownerUnit, vacRate, maintRate, capexRate, mgmtRate,
     fixedExp, monthlyTax, monthlyIns, utilities, snow, monthlyRate, term, loanType, downPct, closingPct,
     comfortCap, totalCash, repairs, livingExp, price, fhaRequired, sstHaircut });
 
@@ -3610,7 +4342,8 @@ function calcMAO(o) {
     α = (o.monthlyRate * f) / (f - 1);
   }
   const mipRate = o.loanType === 'fha' ? 0.0055 : 0.008;
-  const dpd = (1 - o.downPct) * (α + mipRate / 12);
+  const ufmipFactor = o.loanType === 'fha' ? 1.0175 : 1.0;   // financed UFMIP (Batch 1 calibration)
+  const dpd = (1 - o.downPct) * ufmipFactor * (α + mipRate / 12);
   const fpiti = o.monthlyTax + o.monthlyIns;
   const K = o.gsi * ((1 - o.vacRate) - (o.maintRate + o.capexRate + o.mgmtRate)) - o.fixedExp;
   const SK = o.gsi * (1 - o.vacRate) * 0.90 - (o.gsi * (o.maintRate + o.capexRate + o.mgmtRate) + o.fixedExp) * 1.15;
@@ -3622,37 +4355,50 @@ function calcMAO(o) {
 
   const MAO_B = dpd > 0 ? (K - targetCF) / dpd : Infinity;
   const MAO_S = dpd > 0 ? (SK - stressTargetCF) / dpd : Infinity;
-  // v7.3: Scenario A solved against BOTH the clean target ($2,600) and the pain ceiling ($3,200).
-  // The clean target binds the headline MAO so TOP_REVIEW never rests on the ceiling.
-  const aClean = RPC_V2.scenarioAClean;
+  // Batch 7B: Scenario A solved at each of the three band caps off ONE closed
+  // form, so the sub-MAOs can never disagree. The headline binds on the
+  // WORKABLE ($2,500) solve; strong ($1,500) and the absolute ceiling ($3,200)
+  // are informational and must never tighten or loosen the headline.
+  const aStrong = RPC_V2.scenarioAStrong;
+  const aWorkable = RPC_V2.scenarioAWorkable;
   const aCeiling = RPC_V2.scenarioACeiling;
-  const MAO_A_clean = dpd > 0 ? (aClean - fpiti - ownerShare + tOff) / dpd : Infinity;
-  const MAO_A_ceiling = dpd > 0 ? (aCeiling - fpiti - ownerShare + tOff) / dpd : Infinity;
+  const scenarioAMao = (cap) => dpd > 0 ? (cap - fpiti - ownerShare + tOff) / dpd : Infinity;
+  const MAO_A_strong = scenarioAMao(aStrong);
+  const MAO_A_workable = scenarioAMao(aWorkable);
+  const MAO_A_ceiling = scenarioAMao(aCeiling);
   const capNum = o.totalCash - o.repairs - (fpiti + o.livingExp) * 3;
   const capDen = df + 3 * dpd;
   const MAO_C = capDen > 0 ? capNum / capDen : Infinity;
-  // v7.3: FHA SST uses the configurable haircut (single source of truth via o.sstHaircut)
-  const MAO_F = (o.fhaRequired && dpd > 0) ? (o.gsi * sstHaircut - fpiti) / dpd : Infinity;
+  // v7.3: FHA SST uses the configurable haircut (single source of truth via o.sstHaircut).
+  // Batch 4 (audit P1-1): base = UNIT MARKET RENTS ONLY (o.unitRentTotal), matching the
+  // SST gate — other income must never loosen this constraint. Fallback to o.gsi only
+  // if a caller omits unitRentTotal.
+  const sstBase = (typeof o.unitRentTotal === 'number' && isFinite(o.unitRentTotal)) ? o.unitRentTotal : o.gsi;
+  const MAO_F = (o.fhaRequired && dpd > 0) ? (sstBase * sstHaircut - fpiti) / dpd : Infinity;
 
   // CoCR constraint: (12×CF) / totalCashIn ≥ targetCoCR
   const cocNum = 12 * K - targetCoCR * o.repairs;
   const cocDen = 12 * dpd + targetCoCR * df;
   const MAO_R = (targetCoCR > 0 && cocDen > 0) ? cocNum / cocDen : Infinity;
 
+  // `binds` is explicit per row (Batch 7B). Informational Scenario A rows carry
+  // binds:false, so renaming a label or reordering this list can never promote
+  // strong or ceiling into the headline minimum.
   const constraints = [
-    { id: 'b', label: 'Scenario B', value: MAO_B, note: `CF ≥ ${fmt(targetCF)}/mo`, active: true },
-    { id: 's', label: 'Stress Test', value: MAO_S, note: `Stressed CF ≥ ${fmt(stressTargetCF)}`, active: true },
-    { id: 'a', label: 'Scenario A (clean)', value: MAO_A_clean, note: `Housing ≤ ${fmt(aClean)} clean target`, active: true },
-    { id: 'ac', label: 'Scenario A (ceiling)', value: MAO_A_ceiling, note: `Housing ≤ ${fmt(aCeiling)} pain ceiling`, active: true },
-    { id: 'c', label: 'Capital Gate', value: MAO_C, note: 'Reserves ≥ 3mo', active: true },
-    { id: 'f', label: `FHA Test (${Math.round(sstHaircut*100)}%)`, value: MAO_F, note: `${Math.round(sstHaircut*100)}% rent ≥ PITI`, active: o.fhaRequired },
-    { id: 'r', label: `CoCR ≥ ${fmtPct(targetCoCR)}`, value: MAO_R, note: 'Yield target', active: targetCoCR > 0 },
+    { id: 'b', label: 'Scenario B', value: MAO_B, note: `CF ≥ ${fmt(targetCF)}/mo`, active: true, binds: true },
+    { id: 's', label: 'Stress Test', value: MAO_S, note: `Stressed CF ≥ ${fmt(stressTargetCF)}`, active: true, binds: true },
+    { id: 'as', label: 'Scenario A (strong)', value: MAO_A_strong, note: `Housing ≤ ${fmt(aStrong)} — informational`, active: true, binds: false },
+    { id: 'a', label: 'Scenario A (workable)', value: MAO_A_workable, note: `Housing ≤ ${fmt(aWorkable)} workable target`, active: true, binds: true },
+    { id: 'ac', label: 'Scenario A (absolute ceiling)', value: MAO_A_ceiling, note: `Housing ≤ ${fmt(aCeiling)} hard ceiling — informational`, active: true, binds: false },
+    { id: 'c', label: 'Capital Gate', value: MAO_C, note: 'Reserves ≥ 3mo', active: true, binds: true },
+    { id: 'f', label: `FHA Test (${Math.round(sstHaircut*100)}%)`, value: MAO_F, note: `${Math.round(sstHaircut*100)}% rent ≥ PITI`, active: o.fhaRequired, binds: true },
+    { id: 'r', label: `CoCR ≥ ${fmtPct(targetCoCR)}`, value: MAO_R, note: 'Yield target', active: targetCoCR > 0, binds: true },
   ];
 
-  // Headline MAO binds on the CLEAN Scenario A target, not the ceiling.
-  // The ceiling line ('ac') is informational only — it never tightens the main MAO.
+  // Headline MAO = minimum of the ACTIVE BINDING constraints. Scenario A
+  // contributes exactly one candidate: the workable solve.
   const active = constraints.filter(c => c.active && isFinite(c.value));
-  const binders = active.filter(c => c.id !== 'ac');
+  const binders = active.filter(c => c.binds);
   const mao = binders.length > 0 ? Math.min(...binders.map(c => c.value)) : NaN;
   const binding = binders.find(c => Math.abs(c.value - mao) < 0.01);
   const delta = mao - o.price;
@@ -3791,7 +4537,23 @@ function updateQuickGlance(ctx) {
 }
 
 /* ─── Init ─── */
-function onPropTypeChange() { buildRentInputs(); calc(); }
+/**
+ * v3/C20 — a direct unit-count change rebuilds and therefore DESTROYS the
+ * current unit controls. The explicit Full state is captured first, keeping its
+ * own unit count so the precedence rules can never map old values onto a
+ * different count, and the user is visibly asked to review when authored values
+ * were lost. No "preserved" claim is made for a draft that was destroyed.
+ */
+function onPropTypeChange() {
+  rpcCaptureFullDraft();                 // capture the OLD controls before they go
+  const prior = _rpcFullDraft;
+  buildRentInputs();                     // clears authorship
+  const n = parseInt($('propType').value, 10);
+  if (prior && prior.explicit && prior.count !== n) {
+    toast('Unit count changed to ' + n + ' — the previous unit rents were not reused. Review every unit rent.');
+  }
+  calc();
+}
 
 /* ═══════════════════════════════════════
    SAVED DEFAULTS (localStorage)
@@ -3824,6 +4586,14 @@ function loadDefaults() {
     const raw = localStorage.getItem('rpc-defaults');
     if (!raw) return false;
     const data = JSON.parse(raw);
+    // v7.4 FHA calibration: one-time migration of the saved default rate (7.0 -> 6.25).
+    // Leaves a custom non-7.0 saved rate alone. Guarded by a marker so it runs once.
+    if (!localStorage.getItem('rpc-defaults-v74-fha-calibration')) {
+      const savedRate = (data.rate === undefined || data.rate === null) ? '' : String(data.rate).trim();
+      if (savedRate === '' || parseFloat(savedRate) === 7.0) data.rate = '6.25';
+      try { localStorage.setItem('rpc-defaults', JSON.stringify(data)); } catch(e) {}
+      try { localStorage.setItem('rpc-defaults-v74-fha-calibration', '1'); } catch(e) {}
+    }
     // v7.3 one-time migration: pre-v7.3 saved defaults had targetCF default of 0 (breakeven).
     // Bump a saved 0/empty to the RPC v2 target (150) once, unless the user already migrated.
     if (!localStorage.getItem('rpc-defaults-v73')) {
@@ -3845,7 +4615,7 @@ function resetDefaults() {
   localStorage.removeItem('rpc-defaults');
   // Reset to HTML default values
   const defaults = {
-    propType:'4', loanType:'fha', rate:'7.0', loanTerm:'360', closingCostPct:'3.0',
+    propType:'4', loanType:'fha', rate:'6.25', loanTerm:'360', closingCostPct:'3.0',
     annualTax:'7200', annualIns:'2400', utilities:'150', snow:'100',
     vacancyRate:'7', maintRate:'8', capexRate:'8', mgmtRate:'8',
     comfortCap:'3200', totalCash:'60000', livingExp:'2000', zipCode:'55345',
@@ -3857,42 +4627,122 @@ function resetDefaults() {
     const el = $(id);
     if (el) el.value = val;
   });
+  _ownerUnitMode = 'auto';   // Batch 7C v2 (Blocker 4): reset returns owner-unit selection to Auto.
   onPropTypeChange();
   toast('Reset to factory defaults');
 }
 
+/**
+ * Batch 8A §3 — complete per-deal reset.
+ *
+ * CLEARS every current-property surface (Full + Rapid inputs, listing URLs,
+ * county, unit controls, owner mode, unit-mix queue, pending preview, geodata,
+ * deal badges, autofill markers, comp panels, triage state, session-resume
+ * record and banner, and every derived result surface) and invalidates any
+ * in-flight Fetch & Analyze / Pull Comps work by incrementing the deal
+ * generation.
+ *
+ * PRESERVES durable state: rpc-defaults and its migration markers, the
+ * rpc-deals-v1 journal (plus journal filter and comparison selections), API key
+ * and proxy settings, the ZORI market cache, and the rpc-rentcast-calls-used
+ * browser-session budget — including calls already issued, which are never
+ * refunded. Repeated calls are idempotent.
+ */
 function newDeal() {
-  // Clear per-deal fields
+  // §3.3: invalidate every in-flight transaction and pending proposal FIRST.
+  _rpcDealGeneration++;
+
+  // Pending Fetch & Analyze proposal / preview overlay.
+  _rpcPreview = null;
+  rpcClearElement($('fetchPreviewBody'));
+  const previewOverlay = $('fetchPreviewOverlay');
+  if (previewOverlay) previewOverlay.classList.remove('show');
+  const previewApply = $('fetchPreviewApply');
+  if (previewApply) previewApply.style.display = '';
+
+  // Clear per-deal fields (Full)
   $('purchasePrice').value = '';
   $('repairCost').value = '5000';
   $('otherIncome').value = '0';
   const addr = $('address');
   if (addr) addr.value = '';
+  const lu = $('listingUrl');
+  if (lu) lu.value = '';
+  const county = $('mnCounty');
+  if (county) county.value = 'hennepin';
 
-  // Clear rents
+  // Clear rents, bedroom controls, and per-unit comp surfaces
   const n = parseInt($('propType').value);
   for (let i = 0; i < n; i++) {
     const r = $(`rent${i}`);
     if (r) r.value = '';
     const b = $(`beds${i}`);
     if (b) b.value = '1';
+    const cr = $(`compResults${i}`);
+    if (cr) rpcClearElement(cr);
+    updateCompLinks(i);
+    updateRange(i);
   }
+
+  // Fetched autofill markers are prior-deal provenance.
+  document.querySelectorAll('[data-autofilled="true"]').forEach(el => {
+    el.removeAttribute('data-autofilled');
+    el.title = '';
+  });
 
   // Clear rapid fields
   $('r-price').value = '';
   $('r-totalRent').value = '';
   const ra = $('r-address');
   if (ra) ra.value = '';
+  const ru = $('r-url');
+  if (ru) ru.value = '';
+  unitMixQueue = [];
+  _rpcUnitMixQueueProv = null;      // v2/C1: queue provenance is per-deal
+  _rpcTotalRentProv = null;         // v4/Issue 3: aggregate provenance is per-deal
+  _rpcIdentityCandidate = null;     // v5: first-property candidate is per-deal
+  _rpcZipConfirmed = { full: false, rapid: false };
+  renderUnitMixQueue();
+
+  // Current-property-only transient values and badges
+  _geoLat = null;
+  _geoLng = null;
+  const flood = $('flood-badge');
+  if (flood) { flood.textContent = ''; flood.style.display = 'none'; }
+  // v2/C4: the ZORI chip is visible PROPERTY context. The durable rpc-zori-cache
+  // is market data and is deliberately preserved; only the on-screen text goes.
+  const zori = $('glance-zori');
+  if (zori) { zori.textContent = ''; zori.style.display = 'none'; }
+  updateRedfinLink();
+
+  // Batch 8A §4: the prior property's unit draft never survives a new deal.
+  rpcClearFullDraft();
+  rpcClearFullAuthored();           // v3: authorship and its identity are per-deal
 
   // Reset triage buttons
   document.querySelectorAll('.triage-btn').forEach(btn => btn.classList.remove('active'));
   const triageRow = $('triageRow');
   if (triageRow) triageRow.style.display = 'none';
+  _rpcJournalLastResult = null;
 
-  // Switch to rapid mode for speed
-  setMode('rapid');
-  calc();
-  rapidCalc();
+  // Session resume record + banner (a reload must not offer the old deal).
+  try { localStorage.removeItem('rpc-last-session'); } catch(e) {}
+  const resumeBanner = $('resumeBanner');
+  if (resumeBanner) resumeBanner.style.display = 'none';
+
+  // Switch to rapid mode for speed. Suppressed capture: the form is already
+  // cleared, so there is no draft to carry out of Full mode.
+  _ownerUnitMode = 'auto';   // Batch 7C v2 (Blocker 4): a new deal returns owner-unit selection to Auto.
+  _rpcSuppressFullCapture = true;
+  try { setMode('rapid'); } finally { _rpcSuppressFullCapture = false; }
+  applyAutoOwnerUnit();
+  // v3: with every rent cleared, autoOwnerUnitIndex() is indeterminate (-1) and
+  // applyAutoOwnerUnit() is a no-op, which would leave a prior MANUAL pick
+  // visible. Neutralize the visible selection explicitly; idempotent.
+  const ow = $('ownerUnit');
+  if (ow && ow.options.length) ow.value = '0';
+  calc();          // rebuilds every derived Full surface from the cleared inputs
+  rapidCalc();     // clears the Rapid result grid and headline MAO
   toast('New deal — enter the address and price');
 }
 
@@ -4176,7 +5026,483 @@ function closeHelp() {
 ═══════════════════════════════════════ */
 let currentMode = 'rapid';
 
+/* ─── Batch 8A §4: Full-mode unit draft ──────────────────────────────────────
+   Explicit per-unit rents and bedroom layouts are per-deal user input, so a mode
+   switch must never silently flatten them. The draft holds the ordered Full unit
+   values EXACTLY as typed — blank and explicit "0" stay distinct — plus the
+   property identity that produced them, so a stale or wrong-property
+   restoration can be detected and refused. */
+
+let _rpcFullDraft = null;
+let _rpcSuppressFullCapture = false;
+
+/** Read-only accessor (deterministic test seam). */
+function rpcGetFullDraft() { return _rpcFullDraft; }
+
+/**
+ * v3 — identity of an ARBITRARY address+ZIP pair. Provenance is always evaluated
+ * against an explicit identity rather than whatever happens to be sitting in the
+ * Full form, because the pane that owns the identity differs by transition.
+ *
+ *   key         trustworthy journal-v2 key, or '' when identity is unavailable
+ *   raw         byte-exact address+ZIP, the fallback when key is unavailable
+ *   established whether an address has actually been entered at all
+ */
+/**
+ * v5 — the ZIP-INDEPENDENT street core of an address: number|name|dirs|suffix.
+ *
+ * This is what tells "the user is still completing one property" apart from
+ * "the user moved to a different property". It reuses the single hardened
+ * tokenizer; when the address carries no ZIP of its own a synthetic placeholder
+ * lets it tokenize and the ZIP is then discarded, because the core is
+ * deliberately ZIP-independent. No second address parser exists.
+ */
+function rpcStreetCoreOf(addressText) {
+  const a = String(addressText == null ? '' : addressText).trim();
+  if (!a) return '';
+  const withZip = rpcExtractZip5(a) ? a : (a + ' 00000');
+  const id = rpcAddressIdentity(withZip);
+  if (!id) return '';
+  return id.number + '|' + id.name + '|' + id.dirs + '|' + id.suffix;
+}
+
+function rpcIdentityOf(addressText, zipText) {
+  const a = String(addressText == null ? '' : addressText).trim();
+  const z = String(zipText == null ? '' : zipText).trim();
+  return {
+    key: rpcJournalKeyV2(rpcJournalIdentity(a, z)),
+    raw: a + '\u0000' + z,
+    established: a !== '',
+    core: rpcStreetCoreOf(a)
+  };
+}
+
+/** Identity currently shown in the Full pane. */
+function rpcFullIdentity() {
+  return rpcIdentityOf(($('address') || {}).value, ($('zipCode') || {}).value);
+}
+
+/** Identity currently shown in the Rapid pane — INCLUDING blanks (v3/C17). */
+function rpcRapidIdentity() {
+  return rpcIdentityOf(($('r-address') || {}).value, ($('r-zip') || {}).value);
+}
+
+/** Trustworthy key of the Full pane (journal + test seam). */
+function rpcCurrentPropertyKey() { return rpcFullIdentity().key; }
+
+/** Provenance stamp bound to a deal generation AND a specific property identity. */
+function rpcCaptureProvenance(source, ident) {
+  const id = ident || rpcFullIdentity();
+  return {
+    source: source,
+    generation: _rpcDealGeneration,
+    key: id.key,
+    raw: id.raw,
+    established: id.established,
+    // v6: the ZIP-independent street core MUST travel with every stamp.
+    // rpcPromoteProvenance() refines an already-established binding only when
+    // both sides carry a core, so dropping it here silently disabled
+    // same-property ZIP refinement for the Full draft, the unit-mix queue and
+    // the aggregate total, while _rpcFullAuthoredIdentity (which is not built
+    // here) kept working and masked the gap.
+    core: id.core || ''
+  };
+}
+
+/**
+ * v3 — does `prov` belong to the same deal AND the same property as `ident`?
+ * Fails closed:
+ *
+ *   - a different deal generation never qualifies;
+ *   - a capture made before ANY address existed is the legitimate pre-address
+ *     workflow: it qualifies once, and the caller promotes it to the identity
+ *     that established it so a later change to a different property is refused;
+ *   - two trustworthy keys qualify only when equal;
+ *   - otherwise the raw address+ZIP must be byte-identical.
+ *
+ * Clearing the address is therefore a CHANGE (established -> blank fails), while
+ * filling one in for the first time is a REFINEMENT (blank -> established passes).
+ */
+function rpcProvenanceMatches(prov, ident) {
+  if (!prov || !ident) return false;
+  if (prov.generation !== _rpcDealGeneration) return false;
+  if (!prov.established) {
+    // v5: a still-unsettled capture is owned by the first property candidate, so
+    // a different property cannot claim it even before that pair settles.
+    const c = _rpcIdentityCandidate;
+    if (!c) return true;                        // genuinely pre-address
+    return !ident.core || ident.core === c.core;
+  }
+  if (prov.key && ident.key) return prov.key === ident.key;
+  return prov.raw === ident.raw;
+}
+
+/**
+ * Bind a pre-address capture to the property that established it, and keep it
+ * correct while that SAME property's address/ZIP pair is still being completed
+ * or corrected. A different street core never rebinds here.
+ */
+function rpcPromoteProvenance(prov, ident) {
+  if (!prov || !ident || !ident.established) return;
+  if (!prov.established) {
+    prov.key = ident.key;
+    prov.raw = ident.raw;
+    prov.core = ident.core;
+    prov.established = true;
+  } else if (prov.core && ident.core && prov.core === ident.core) {
+    prov.key = ident.key;          // same property, refined ZIP
+    prov.raw = ident.raw;
+  }
+}
+
+/* ─── v4/Issue 5: blank-authored state binds at ESTABLISHMENT ────────────────
+   Binding at consumption let blank-authored state attach to whichever property
+   happened to restore it: author blank -> enter A -> change to B -> switch modes
+   bound the state to B. Every identity edit is now observed, so the FIRST
+   address entered after authorship claims the state; a later change to a
+   different property then fails closed with no mode transition required. */
+
+function rpcBindAllBlankAuthored(ident) {
+  if (!ident || !ident.established) return;
+  rpcPromoteProvenance(_rpcFullAuthoredIdentity, ident);
+  if (_rpcFullDraft) rpcPromoteProvenance(_rpcFullDraft.provenance, ident);
+  rpcPromoteProvenance(_rpcUnitMixQueueProv, ident);
+  rpcPromoteProvenance(_rpcTotalRentProv, ident);
+}
+
+/* ─── v5: first-property establishment state machine ─────────────────────────
+   Address and ZIP are two fields describing ONE property, edited in either
+   order, and a saved/default ZIP is not a user statement about this deal. A
+   single-field snapshot is therefore a CANDIDATE, never a permanent binding:
+
+     candidate   the first meaningful property the user has begun to describe,
+                 identified by its ZIP-independent street core;
+     refine      any later edit that keeps the same street core — completing or
+                 correcting the address/ZIP pair — updates the candidate;
+     settle      the pair becomes mutually coherent, at which point the
+                 blank-authored state is permanently bound;
+     fail closed once settled, a DIFFERENT street core is a different property
+                 and never rebinds.
+
+   Blank-authored state is owned by the candidate from the moment one exists, so
+   a different property cannot claim it even before the pair settles. */
+
+let _rpcIdentityCandidate = null;
+let _rpcZipConfirmed = { full: false, rapid: false };
+
+function rpcGetIdentityCandidate() { return _rpcIdentityCandidate; }
+
+/**
+ * Is the address/ZIP pair mutually coherent enough to bind permanently?
+ *
+ *   disagreeing embedded vs separate ZIP  -> never settles (the repro case)
+ *   agreeing embedded and separate ZIP    -> corroborated, settles with no retyping
+ *   embedded ZIP only                     -> the address carries its own ZIP
+ *   separate ZIP only                     -> only once the user has confirmed
+ *                                            that ZIP, or has committed the
+ *                                            address and moved on
+ *   no ZIP anywhere                       -> nothing to settle yet
+ */
+function rpcIdentityPairSettled(addressText, zipText, pane, committed) {
+  const a = String(addressText == null ? '' : addressText).trim();
+  if (!a) return false;
+  const embedded = rpcExtractZip5(a);
+  const zRaw = String(zipText == null ? '' : zipText).trim();
+  const field = /^\d{5}$/.test(zRaw) ? zRaw : null;
+  if (embedded && field) return embedded === field;
+  if (embedded) return true;
+  if (field) return !!_rpcZipConfirmed[pane] || !!committed;
+  return false;
+}
+
+/**
+ * Every identity edit in either pane.
+ * @param pane      'full' | 'rapid'
+ * @param field     'address' | 'zip'
+ * @param committed true for change/blur, false for input
+ */
+function rpcOnIdentityEdited(pane, field, committed) {
+  if (field === 'zip') _rpcZipConfirmed[pane] = true;   // a real user statement
+
+  const ident = (pane === 'rapid') ? rpcRapidIdentity() : rpcFullIdentity();
+  if (!ident.established || !ident.core) return;        // nothing meaningful yet
+
+  const cand = _rpcIdentityCandidate;
+  if (!cand) {
+    _rpcIdentityCandidate = { core: ident.core, key: ident.key, raw: ident.raw, settled: false };
+  } else if (cand.core === ident.core) {
+    cand.key = ident.key;                               // refinement of the same property
+    cand.raw = ident.raw;
+  } else {
+    // A different street core is a different property. The FIRST meaningful
+    // candidate is preserved whether or not it settled, so state begun under
+    // property A is never handed to property B — completing the pair is a
+    // refinement, replacing the street is not.
+    return;
+  }
+
+  const c = _rpcIdentityCandidate;
+  const addr = (pane === 'rapid') ? (($('r-address') || {}).value) : (($('address') || {}).value);
+  const zip  = (pane === 'rapid') ? (($('r-zip') || {}).value)     : (($('zipCode') || {}).value);
+  if (rpcIdentityPairSettled(addr, zip, pane, committed)) c.settled = true;
+
+  // Permanent binding happens ONLY on settle. Before that the candidate alone
+  // owns the blank-authored state (see rpcProvenanceMatches), so a temporary
+  // one-field identity never becomes permanent — and an unconfirmed saved ZIP
+  // never counts as the user's statement about this deal.
+  if (c.settled) {
+    rpcBindAllBlankAuthored({ key: c.key, raw: c.raw, established: true, core: c.core });
+  }
+}
+
+/**
+ * Attach the identity and aggregate-total watchers. Idempotent and safe to call
+ * more than once: it is invoked both at script execution and on DOMContentLoaded,
+ * so the watchers exist no matter which fires first. Batch 8A adds no markup —
+ * these are attached programmatically.
+ */
+let _rpcWatchersAttached = false;
+function rpcAttachStateWatchers() {
+  if (_rpcWatchersAttached) return;
+  const idFields = [['address', 'full'], ['zipCode', 'full'],
+                    ['r-address', 'rapid'], ['r-zip', 'rapid']];
+  if (!$(idFields[0][0])) return;                    // DOM not built yet — retry later
+  idFields.forEach(function (pair) {
+    const el = $(pair[0]);
+    if (!el) return;
+    const field = (pair[0] === 'zipCode' || pair[0] === 'r-zip') ? 'zip' : 'address';
+    el.addEventListener('input', function () { rpcOnIdentityEdited(pair[1], field, false); });
+    el.addEventListener('change', function () { rpcOnIdentityEdited(pair[1], field, true); });
+  });
+  const rtEl = $('r-totalRent');
+  if (rtEl) {
+    // v4/Issue 3: a real user edit of the aggregate, bound to the current identity.
+    rtEl.addEventListener('input', rpcOnTotalRentEdited);
+    rtEl.addEventListener('change', rpcOnTotalRentEdited);
+  }
+  _rpcWatchersAttached = true;
+}
+
+/* ─── v4/Issue 3: provenance for the AGGREGATE Rapid total ───────────────────
+   r-totalRent is a derived aggregate, so rejecting property A's exact unit state
+   for an identity mismatch is not enough: A's total could still reach property B
+   through first-time equal seeding. The total therefore carries its own stamp
+   plus whether a user actually entered it:
+
+     authored:false  auto-generated from A's chips or A's Full rents
+     authored:true   typed or edited by the user while that identity was current
+     established:false  entered before any address; binds on first establishment
+
+   Seeding is permitted only when the stamp matches the property being expanded,
+   so a stale A total cannot equal-seed B while a genuinely B-authored total can. */
+
+let _rpcTotalRentProv = null;
+
+function rpcGetTotalRentProvenance() { return _rpcTotalRentProv; }
+
+/** Stamp the aggregate total. `ident` defaults to the Rapid pane's identity. */
+function rpcMarkTotalRent(authored, ident) {
+  _rpcTotalRentProv = rpcCaptureProvenance('total-rent', ident || rpcRapidIdentity());
+  _rpcTotalRentProv.authored = !!authored;
+}
+
+/** A real user edit of the Rapid total, bound to the identity then on screen. */
+function rpcOnTotalRentEdited() {
+  rpcMarkTotalRent(true, rpcRapidIdentity());
+}
+
+/**
+ * May the current aggregate total seed `ident` evenly?
+ * An untracked total (page default, or typed before tracking) is allowed: it
+ * cannot be A-derived, because every A-derived write stamps provenance.
+ */
+function rpcTotalRentEligible(ident) {
+  if (!_rpcTotalRentProv) return true;
+  if (!rpcProvenanceMatches(_rpcTotalRentProv, ident)) return false;
+  rpcPromoteProvenance(_rpcTotalRentProv, ident);
+  return true;
+}
+
+/** How many Full unit controls actually exist right now. */
+function rpcCountFullUnitControls() {
+  let n = 0;
+  while ($('rent' + n) || $('beds' + n)) n++;
+  return n;
+}
+
+/**
+ * Capture the ordered Full unit draft exactly as typed.
+ *
+ * v3: the count comes from the DOM, not from #propType, because
+ * onPropTypeChange() fires AFTER the select's value has already changed — using
+ * the new count against the old controls would map values onto the wrong units.
+ * Explicitness comes from the authoring EVENT, not from the shape of the values,
+ * so rebuilt defaults are never mistaken for user input.
+ */
+function rpcCaptureFullDraft() {
+  const n = rpcCountFullUnitControls();
+  if (n <= 0) return;                                // controls not built — capture nothing
+
+  // v4/Issue 4: a property-count rebuild leaves the form holding non-authored
+  // defaults. Capturing those would replace the explicit mismatch sentinel that
+  // onPropTypeChange() just recorded, silently discarding the review state and
+  // re-enabling equal seeding. The sentinel survives until the user genuinely
+  // authors a compatible unit plan.
+  if (!_rpcFullAuthored && _rpcFullDraft && _rpcFullDraft.explicit) return;
+  const units = [];
+  let explicitRent = false;
+  for (let i = 0; i < n; i++) {
+    const r = $('rent' + i), b = $('beds' + i);
+    const rentText = r ? String(r.value) : '';
+    if (rentText.trim() !== '') explicitRent = true; // explicit "0" is still explicit
+    units.push({ beds: b ? String(b.value) : '', rent: rentText });
+  }
+  _rpcFullDraft = {
+    count: n,
+    units: units,
+    explicitRent: explicitRent,                      // diagnostic only
+    explicit: _rpcFullAuthored,                      // authoritative
+    provenance: rpcCaptureProvenance('full-draft',
+      _rpcFullAuthoredIdentity || rpcFullIdentity()),
+    capturedAt: Date.now()
+  };
+}
+
+function rpcClearFullDraft() { _rpcFullDraft = null; }
+
+/** An authored draft belonging to `ident`, regardless of unit count. */
+function rpcUsableFullDraftAnyCount(ident) {
+  const d = _rpcFullDraft;
+  if (!d || !d.explicit) return null;
+  const target = ident || rpcFullIdentity();
+  if (!rpcProvenanceMatches(d.provenance, target)) return null;   // fail closed
+  return d;
+}
+
+/** The draft only when it is `ident`'s, authored, and the same size. */
+function rpcUsableFullDraft(n, ident) {
+  const d = rpcUsableFullDraftAnyCount(ident);
+  return d && d.count === n ? d : null;
+}
+
+/** Write a captured draft back verbatim; blanks stay blank, "0" stays "0". */
+function rpcRestoreFullDraft(draft) {
+  for (let i = 0; i < draft.units.length; i++) {
+    const u = draft.units[i];
+    const b = $('beds' + i);
+    if (b && u.beds !== '') b.value = u.beds;
+    const r = $('rent' + i);
+    if (r) r.value = u.rent;
+    updateCompLinks(i);
+    updateRange(i);
+  }
+}
+
+/** Numeric total of a draft, or null when any unit rent is blank/non-numeric. */
+function rpcDraftRentTotal(draft) {
+  let total = 0;
+  for (let i = 0; i < draft.units.length; i++) {
+    const raw = String(draft.units[i].rent);
+    const v = parseFloat(raw);
+    if (raw.trim() === '' || !isFinite(v)) return null;
+    total += v;
+  }
+  return total;
+}
+
+/**
+ * v3 — queue provenance. EVERY queue must prove same-property provenance,
+ * whichever pane authored it: chips entered in Rapid while Property A was on
+ * screen belong to Property A just as much as a Full-derived queue does
+ * (v3/C18). Editing a Full-derived queue does not downgrade its provenance,
+ * because it still contains that property's values.
+ */
+function rpcQueueProvenanceOk(ident) {
+  const p = _rpcUnitMixQueueProv;
+  if (!p) return false;                                      // no provenance → fail closed
+  const target = ident || rpcFullIdentity();
+  if (!rpcProvenanceMatches(p, target)) return false;
+  rpcPromoteProvenance(p, target);                           // bind a pre-address queue
+  return true;
+}
+
+/** The Rapid queue only when it is an exact ordered plan for n units of `ident`. */
+function rpcExactUnitMixQueue(n, ident) {
+  if (!Array.isArray(unitMixQueue) || unitMixQueue.length !== n) return null;
+  for (let i = 0; i < n; i++) {
+    const u = unitMixQueue[i];
+    if (!u || !isFinite(parseFloat(u.rent))) return null;
+  }
+  if (!rpcQueueProvenanceOk(ident)) return null;             // fail closed
+  return unitMixQueue.slice();
+}
+
+/**
+ * §4.2 Full → Rapid synchronization. Full rents are never altered. Exact
+ * bedroom/rent pairs move into unitMixQueue only when EVERY unit rent is
+ * numeric; a partial draft stays partial in _rpcFullDraft rather than being
+ * averaged, fabricated, or half-transferred.
+ */
+function rpcSyncRapidFromFull() {
+  const n = parseInt(($('propType') || {}).value, 10);
+  if (!Number.isInteger(n) || n <= 0) return;
+  // v4/Issue 2 — §4.2 field audit. Every scalar below is synchronized RAW,
+  // blanks included: clearing a Full field is a deliberate statement, and a
+  // truthy-only copy silently left property A's address, ZIP or price standing
+  // in the Rapid pane.
+  //   address    raw (was: only when non-empty)
+  //   zipCode    raw (was: only when non-empty)
+  //   price      raw (was: only when non-blank)
+  //   propType   range-guarded, NOT truthy-guarded — Rapid only models 2-4 units,
+  //              so a 5+ unit Full property legitimately has no Rapid equivalent
+  //   totalRent  completeness-guarded, NOT truthy-guarded — a partial unit plan
+  //              has no meaningful aggregate (§4.2 partial-draft rule)
+  const rp = $('r-propType');
+  if (rp && n >= 2 && n <= 4) rp.value = String(n);
+  const ra = $('r-address');
+  if (ra) ra.value = ($('address') || {}).value || '';
+  const rz = $('r-zip');
+  if (rz) rz.value = ($('zipCode') || {}).value || '';
+  const rpr = $('r-price');
+  if (rpr) rpr.value = ($('purchasePrice') || {}).value || '';
+
+  // v3: the queue carries AUTHORED unit values. A form holding nothing but
+  // rebuilt defaults has no unit plan to hand over.
+  if (!_rpcFullAuthored) return;
+
+  const pairs = [];
+  let complete = true, total = 0;
+  for (let i = 0; i < n; i++) {
+    const r = $('rent' + i), b = $('beds' + i);
+    const raw = r ? String(r.value) : '';
+    const v = parseFloat(raw);
+    if (raw.trim() === '' || !isFinite(v)) { complete = false; break; }
+    total += v;
+    pairs.push({ beds: b ? String(b.value) : '1', rent: v });
+  }
+  if (complete && pairs.length === n) {
+    unitMixQueue = pairs;
+    // The queue holds the Full rents, so it inherits the identity they were
+    // AUTHORED under — not whatever address the Full pane shows right now.
+    _rpcUnitMixQueueProv = rpcCaptureProvenance('full-sync',
+      _rpcFullAuthoredIdentity || rpcFullIdentity());
+    renderUnitMixQueue();
+    const rt = $('r-totalRent');
+    if (rt) {
+      rt.value = String(total);
+      // v4/Issue 3: derived from THIS property's authored rents.
+      rpcMarkTotalRent(false, _rpcFullAuthoredIdentity || rpcFullIdentity());
+    }
+  }
+}
+
 function setMode(mode) {
+  // Batch 8A §4.2: leaving Full captures the ordered unit draft FIRST, then
+  // synchronizes Rapid from the Full form. Full rents are never altered.
+  if (mode === 'rapid' && currentMode === 'full' && !_rpcSuppressFullCapture) {
+    rpcCaptureFullDraft();
+    rpcSyncRapidFromFull();
+  }
   currentMode = mode;
   $('modeRapid').classList.toggle('active', mode === 'rapid');
   $('modeFull').classList.toggle('active', mode === 'full');
@@ -4188,30 +5514,75 @@ function setMode(mode) {
 
 function expandToFull() {
   // Copy rapid values into full analysis fields
-  const rp = getNum('r-price');
+  const rpRaw = $('r-price').value;        // v4/Issue 2: raw, so a blank stays blank
   const rt = getNum('r-totalRent');
   const rn = parseInt($('r-propType').value);
   const ra = $('r-address').value;
   const rz = $('r-zip').value;
 
-  if (rp) $('purchasePrice').value = rp;
-  if (ra) $('address').value = ra;
-  if (rz) $('zipCode').value = rz;
+  // v3/C17: the identity governing the expanded Full form is the RAPID identity,
+  // blanks included. Clearing the Rapid address is a deliberate statement that
+  // this is no longer the same property, so it is applied unconditionally and
+  // the Full pane always ends up showing the identity we actually evaluated.
+  const target = rpcIdentityOf(ra, rz);
+  $('purchasePrice').value = rpRaw;   // v4/Issue 2: raw, blanks included
+  $('address').value = ra;
+  $('zipCode').value = rz;
   $('propType').value = rn;
-  buildRentInputs();
 
-  // Distribute total rent evenly across units
-  if (rt > 0) {
-    const perUnit = Math.round(rt / rn);
+  // Batch 8A §4.3 precedence, resolved BEFORE the form is rebuilt:
+  //   1. same-deal, same-count, authored Full draft for `target` → restore exactly
+  //   2. otherwise an EXACT Rapid queue for `target` (length === unit count)
+  //   3. otherwise, with no authored draft, an entered total may seed evenly
+  //   4. otherwise (count mismatch, no exact queue) → safe first-time state + review
+  const draft = rpcUsableFullDraft(rn, target);
+  const queue = draft ? null : rpcExactUnitMixQueue(rn, target);
+  const explicitDraftExists = !!rpcUsableFullDraftAnyCount(target);
+  if (draft) rpcPromoteProvenance(draft.provenance, target);   // bind a pre-address draft
+
+  buildRentInputs();          // destroys the controls and clears authorship
+
+  let note = 'Switched to full analysis — adjust individual unit rents';
+  if (draft) {
+    rpcRestoreFullDraft(draft);
+    rpcMarkFullAuthored();
+    const draftTotal = rpcDraftRentTotal(draft);
+    note = (draftTotal !== null && rt > 0 && Math.round(draftTotal) !== Math.round(rt))
+      ? 'Switched to full analysis — your individual unit rents were preserved and may need adjustment (they do not add up to the Rapid total)'
+      : 'Switched to full analysis — your individual unit rents were preserved';
+  } else if (queue) {
     for (let i = 0; i < rn; i++) {
+      const b = $(`beds${i}`);
+      if (b && queue[i].beds !== undefined && queue[i].beds !== null) b.value = String(queue[i].beds);
       const r = $(`rent${i}`);
-      if (r) r.value = perUnit;
+      if (r) r.value = String(queue[i].rent);
+      updateCompLinks(i);
+      updateRange(i);
     }
+    rpcMarkFullAuthored();     // the queue supplied real, deal-owned unit values
+    note = 'Switched to full analysis — your unit mix transferred; verify each unit rent';
+  } else if (!explicitDraftExists && rpcTotalRentEligible(target)) {
+    // First-time expansion only, and only with an aggregate that belongs to this
+    // property (v4/Issue 3). The Rapid equal-rent disclosure is unchanged.
+    if (rt > 0) {
+      const perUnit = Math.round(rt / rn);
+      for (let i = 0; i < rn; i++) {
+        const r = $(`rent${i}`);
+        if (r) r.value = perUnit;
+      }
+      rpcMarkFullAuthored();   // seeded from a total the user actually entered
+    }
+  } else {
+    // §4.3.4: stale unit values are NEVER mapped onto different units.
+    note = 'Switched to full analysis — the unit count changed, so the previous unit rents were not reused. Review every unit rent.';
   }
 
+  _ownerUnitMode = 'auto';   // Batch 7C v2 (Blocker 4): a new full analysis starts in Auto.
+  applyAutoOwnerUnit();
   setMode('full');
   calc();
-  toast('Switched to full analysis — adjust individual unit rents');
+  rpcCaptureFullDraft();     // Batch 8A §4.4: keep round trips idempotent.
+  toast(note);
 }
 
 /* ═══════════════════════════════════════
@@ -4255,7 +5626,9 @@ function rapidCalc() {
   // Core calcs (same formulas as full mode)
   const downPct = loanType === 'fha' ? 0.035 : 0.05;
   const downPayment = price * downPct;
-  const loanAmt = price - downPayment;
+  const baseLoan = price - downPayment;
+  const ufmip = loanType === 'fha' ? baseLoan * 0.0175 : 0;   // financed up-front MIP (Batch 1 calibration)
+  const loanAmt = baseLoan + ufmip;                           // P&I and MIP use the UFMIP-inclusive loan
   let mip = 0;
   if (loanType === 'fha') mip = (loanAmt * 0.0055) / 12;
   else if (loanAmt / price > 0.80) mip = (loanAmt * 0.008) / 12;
@@ -4299,14 +5672,19 @@ function rapidCalc() {
   const sStress = stressCF >= 0 ? 'pass' : 'fail';
 
   // Capital (v7.3: compute cash-to-close band like Full so the review bucket is consistent)
-  const deployed = downPayment + (loanAmt * closingPct) + repairs;
+  const deployed = downPayment + (baseLoan * closingPct) + repairs;
   const remaining = totalCash - deployed;
   const minReserve = (piti + livingExp) * 3;
   const sCapital = remaining >= minReserve ? 'pass' : 'fail';
   const reserveMonthsCash = loanType === 'fha' && n <= 2 ? 1 : loanType === 'fha' ? 3 : 6;
-  const cashNoCreditsR = downPayment + (loanAmt * closingPct) + repairs + (piti * reserveMonthsCash);
+  // Batch 3 (audit P0-2/P0-3): prepaids (2× PITI) in the basis (backend parity);
+  // usable credit = min(program cap, closing + prepaids) — credits never touch
+  // down payment, reserves, or repairs.
+  const prepaidsR = piti * 2;
+  const eligibleR = (baseLoan * closingPct) + prepaidsR;
+  const cashNoCreditsR = downPayment + (baseLoan * closingPct) + repairs + (piti * reserveMonthsCash) + prepaidsR;
   const maxSellerCreditR = price * (loanType === 'fha' ? 0.06 : 0.03);
-  const cashWithCreditsR = Math.max(0, cashNoCreditsR - maxSellerCreditR);
+  const cashWithCreditsR = cashNoCreditsR - Math.min(maxSellerCreditR, eligibleR);
   const cashBandR = cashToCloseBand(cashNoCreditsR, cashWithCreditsR);
 
   // FHA SST (v7.3: shared helper + configurable haircut, same as Full)
@@ -4325,7 +5703,8 @@ function rapidCalc() {
     α = (monthlyRate * f) / (f - 1);
   }
   const mipRate = loanType === 'fha' ? 0.0055 : 0.008;
-  const dpd = (1 - downPct) * (α + mipRate / 12);
+  const ufmipFactor = loanType === 'fha' ? 1.0175 : 1.0;   // financed UFMIP (Batch 1 calibration)
+  const dpd = (1 - downPct) * ufmipFactor * (α + mipRate / 12);
   const fpiti = monthlyTax + monthlyIns;
   const K = gsi * ((1 - vacRate) - (maintRate + capexRate + mgmtRate)) - fixedExp;
   const SK = gsi * (1 - vacRate) * 0.90 - (gsi * (maintRate + capexRate + mgmtRate) + fixedExp) * 1.15;
@@ -4336,8 +5715,46 @@ function rapidCalc() {
   const maoB = dpd > 0 ? (K - targetCFR) / dpd : Infinity;
   const maoS = dpd > 0 ? (SK - stressTargetCFR) / dpd : Infinity;
   const maoC = capDen > 0 ? capNum / capDen : Infinity;
-  const maoF = (fhaRequired && dpd > 0) ? (gsi * 0.75 - fpiti) / dpd : Infinity;
-  const candidates = [maoB, maoS, maoC, maoF].filter(v => isFinite(v));
+  // Batch 4 (audit P1-1): use the configurable haircut, same as the rapid SST gate
+  // two lines above (was hardcoded 0.75). Rapid gsi is already unit rents only.
+  const maoF = (fhaRequired && dpd > 0) ? (gsi * sstHaircutRapid - fpiti) / dpd : Infinity;
+
+  // ── Batch 7B: Rapid Scenario A ──────────────────────────────────────────
+  // Rapid knows TOTAL rent but has no trusted per-unit mix, so it reuses its
+  // existing EQUAL-RENT quick-screen assumption (identical to the Quick Glance
+  // / review-bucket estimate below):
+  //   average unit rent = total rent / units
+  //   owner occupies ONE average-rent unit
+  //   tenant rent      = total rent x (units - 1) / units
+  // This is a screen, not a per-unit model. Lowest-rent owner-unit selection is
+  // Batch 7C. The assumption is disclosed on screen next to the Rapid MAO.
+  const tenantShareMaoR = n > 1 ? (n - 1) / n : 0;
+  const tenantGsiMaoR = gsi * tenantShareMaoR;
+  const tOffR =
+    tenantGsiMaoR * (1 - vacRate)
+    - tenantGsiMaoR * (maintRate + capexRate)
+    - fixedExp * tenantShareMaoR;
+  const ownerShareR = n > 0 ? (utilities + snow) / n : 0;
+  const rapidScenarioAMao = (cap) => dpd > 0 ? (cap - fpiti - ownerShareR + tOffR) / dpd : Infinity;
+  // Same three band caps and the same algebra as Full calcMAO().
+  const maoAStrongR = rapidScenarioAMao(RPC_V2.scenarioAStrong);
+  const maoAWorkableR = rapidScenarioAMao(RPC_V2.scenarioAWorkable);
+  const maoACeilingR = rapidScenarioAMao(RPC_V2.scenarioACeiling);
+
+  // ── Batch 7B: ONE Rapid Scenario A band, used by every decision surface ──
+  // The quick net live-in cost under the same equal-rent assumption. This single
+  // value feeds the MAO pill, the shared gate list, the main verdict, AND the
+  // review bucket, so those surfaces can never disagree (e.g. a verdict saying
+  // "Quick screen passed" while the pill says "Scenario A over ceiling").
+  const quickNetHousingR = piti + ownerShareR - tOffR;
+  const aBandR = scenarioABand(quickNetHousingR);
+  // Only ABOVE the absolute ceiling is a hard failure; workable/weak are
+  // conditional warnings (they must not become new hard fails — Batch 7B spec).
+  const sScenA = aBandR === 'strong' ? 'pass' : aBandR === 'fail' ? 'fail' : 'warn';
+
+  // Only the WORKABLE Scenario A solve is an active candidate. Strong and the
+  // absolute ceiling are informational and are deliberately excluded here.
+  const candidates = [maoB, maoS, maoC, maoF, maoAWorkableR].filter(v => isFinite(v));
   const mao = candidates.length > 0 ? Math.min(...candidates) : NaN;
 
   // Render results
@@ -4372,11 +5789,50 @@ function rapidCalc() {
     $('r-maoDelta').textContent = 'Cannot calculate — check your defaults';
   }
 
+  // Batch 7B: Scenario A sub-MAO context + the equal-rent disclosure.
+  const rSubEl = $('r-maoScenarioA');
+  if (rSubEl) {
+    if (isFinite(maoAWorkableR) && maoAWorkableR > 0) {
+      rSubEl.innerHTML =
+        `<div id="r-saSubMaos">Scenario A · workable ${fmt(maoAWorkableR)} (active)`
+        + ` · strong ${isFinite(maoAStrongR) ? fmt(maoAStrongR) : '—'} (info)`
+        + ` · ceiling ${isFinite(maoACeilingR) ? fmt(maoACeilingR) : '—'} (info)</div>`
+        + `<div id="r-saAssumption" class="rapid-assumption">Quick screen assumes equal rents:`
+        + ` owner takes one average unit (${fmt(n > 0 ? gsi / n : 0)}/mo of ${fmt(gsi)} total).`
+        + ` Equal-rent assumption \u2014 owner-unit choice does not change Scenario A.`
+        + ` Open Full Analysis for per-unit rents.</div>`;
+    } else {
+      rSubEl.innerHTML = `<div id="r-saSubMaos">Scenario A · —</div>`
+        + `<div id="r-saAssumption" class="rapid-assumption">Quick screen assumes equal rents across units.</div>`;
+    }
+  }
+
+  // Rapid Scenario A gate pill: only above the absolute ceiling is a hard fail.
+  // Driven by the shared aBandR so the pill, gate list, and verdict agree.
+  const rSaPill = $('r-saPill');
+  if (rSaPill) {
+    const bandR = aBandR;
+    const pillMap = {
+      strong:   ['pass', '✓ Scenario A strong'],
+      workable: ['warn', '~ Scenario A workable'],
+      weak:     ['warn', '⚠ Scenario A weak'],
+      fail:     ['fail', '✗ Scenario A over ceiling'],
+    };
+    const [cls, text] = pillMap[bandR];
+    rSaPill.className = `gate-pill ${cls}`;
+    rSaPill.textContent = text;
+  }
+
   // Update shared verdict
-  const critFails = [sBpass, sStress, sCapital].filter(s => s === 'fail').length;
+  // Batch 7B: Scenario A participates in the Rapid gate aggregation exactly as
+  // it does in Full mode. An over-ceiling Scenario A is a CRITICAL failure, so
+  // the main verdict can never report a pass while the Scenario A pill reports
+  // "over ceiling". Workable/weak contribute a warning, not a hard fail.
+  const critFails = [sBpass, sStress, sCapital, sScenA].filter(s => s === 'fail').length;
   const allChecks = [
     { label: '1%', status: s1 },
     { label: '50%', status: s50 },
+    { label: 'Scen A ●', status: sScenA },
     { label: 'Scen B ●', status: sBpass },
     { label: 'Stress ●', status: sStress },
     { label: 'Capital ●', status: sCapital },
@@ -4393,7 +5849,17 @@ function rapidCalc() {
   const vt = v.querySelector('.verdict-title');
   const vd = v.querySelector('.verdict-desc');
 
-  if (critFails === 0 && hardFails === 0) {
+  // FHA SST precedence (Batch 2/4): mirror of full mode.
+  const sstShortfallR = (fhaRequired && !fhaSstRapid.pass) ? (piti - fhaSstRapid.netRent) : 0;
+  if (fhaRequired && !fhaSstRapid.pass && sstShortfallR > 500) {
+    v.className = 'verdict fail'; vi.textContent = '✗';
+    vt.textContent = 'FHA won\'t finance this 3–4 unit as-is';
+    vd.textContent = `FHA self-sufficiency fails by ${fmt(sstShortfallR)}/mo (over $500). Go conventional or raise rents.`;
+  } else if (fhaRequired && !fhaSstRapid.pass) {
+    v.className = 'verdict warn'; vi.textContent = '~';
+    vt.textContent = 'FHA self-sufficiency short — verify before FHA';
+    vd.textContent = `FHA SST fails by ${fmt(sstShortfallR)}/mo (within $500). Verify with lender or nudge rents.`;
+  } else if (critFails === 0 && hardFails === 0) {
     v.className = 'verdict pass'; vi.textContent = '✓';
     vt.textContent = 'Quick screen passed — worth a full analysis';
     vd.textContent = 'All critical gates clear with your defaults. Open Full Analysis to set individual unit rents and verify the details.';
@@ -4411,7 +5877,7 @@ function rapidCalc() {
   const ownerUnitUtilR = getNum('ownerUnitUtilitiesMonthly');
   const reserveMonthsR = loanType === 'fha' && n <= 2 ? 1 : loanType === 'fha' ? 3 : 6;
   const reservesAmtR = piti * reserveMonthsR;
-  const totalCashInR = downPayment + (loanAmt * closingPct) + repairs + reservesAmtR;
+  const totalCashInR = downPayment + (baseLoan * closingPct) + repairs + reservesAmtR;
   const cocR = totalCashInR > 0 ? (cf * 12) / totalCashInR : 0;
   const annualDSR = (pi + mip) * 12;
   const dscrR = annualDSR > 0 ? (noi * 12) / annualDSR : 0;
@@ -4433,9 +5899,10 @@ function rapidCalc() {
   });
 
   // ── Review Bucket (v7.3 — Rapid uses a quick Scenario A estimate from net live-in housing cost) ──
-  // Quick Scenario A: PITI + owner's pro-rata utilities − net tenant offset (no reserve accrual, unlike THC)
-  const quickNetHousingR = piti + ((utilities + snow) / n) - netOffsetR;
-  const aBandR = scenarioABand(quickNetHousingR);
+  // Batch 7B: reuses the single shared aBandR computed above (same equal-rent
+  // quick screen), so the bucket, the gate list, the verdict, and the pill all
+  // agree. PRICE_DROP_WATCH behavior is unchanged: reviewBucket() still treats a
+  // hard fail with a viable lower MAO as a watch/low-offer candidate.
   let maoGapPctR = 0;
   if (isFinite(mao) && mao > 0 && price > 0) maoGapPctR = (price - mao) / price;
   renderReviewBucket({
@@ -4487,9 +5954,63 @@ function saveApiKey() {
   }
   localStorage.setItem('rpc-rentcast-key', key);
   loadApiKeyStatus();
-  buildRentInputs(); // Rebuild to show Pull Comps buttons
+
+  // v4/Issue 6: this rebuild exists only to surface the Pull Comps buttons. It
+  // is a UI-only refresh, so the authored unit state is captured and restored
+  // around it — otherwise saving a key silently replaced 1200/1750/2400 with
+  // market defaults. Owner-unit selection and authorship are preserved too.
+  const preserved = rpcSnapshotFullUnitState();
+  buildRentInputs();                 // clears authorship
+  rpcRestoreFullUnitState(preserved);
+
   calc();
   toast('RentCast API key saved — Pull Comps buttons are now active');
+}
+
+/**
+ * v4/Issue 6 — capture the exact Full unit state around a UI-ONLY rebuild.
+ * Nothing about the deal has changed, so values, owner-unit selection, the
+ * authorship flag and its identity are all restored verbatim afterwards.
+ */
+function rpcSnapshotFullUnitState() {
+  const n = rpcCountFullUnitControls();
+  const units = [];
+  for (let i = 0; i < n; i++) {
+    units.push({
+      beds: $('beds' + i) ? String($('beds' + i).value) : '',
+      rent: $('rent' + i) ? String($('rent' + i).value) : ''
+    });
+  }
+  return {
+    count: n, units: units,
+    authored: _rpcFullAuthored,
+    authoredIdentity: _rpcFullAuthoredIdentity,
+    ownerUnit: $('ownerUnit') ? String($('ownerUnit').value) : '',
+    ownerMode: _ownerUnitMode
+  };
+}
+
+/** Restore a UI-only snapshot, but only onto a compatible (same-count) form. */
+function rpcRestoreFullUnitState(snap) {
+  if (!snap || snap.count <= 0) return;
+  if (rpcCountFullUnitControls() !== snap.count) return;   // incompatible — leave the rebuild alone
+  for (let i = 0; i < snap.count; i++) {
+    const b = $('beds' + i);
+    if (b && snap.units[i].beds !== '') b.value = snap.units[i].beds;
+    const r = $('rent' + i);
+    if (r) r.value = snap.units[i].rent;
+    updateCompLinks(i);
+    updateRange(i);
+  }
+  _rpcFullAuthored = snap.authored;
+  _rpcFullAuthoredIdentity = snap.authoredIdentity;
+  _ownerUnitMode = snap.ownerMode;
+  const ow = $('ownerUnit');
+  if (ow && snap.ownerUnit !== '') {
+    for (let i = 0; i < ow.options.length; i++) {
+      if (ow.options[i].value === snap.ownerUnit) { ow.value = snap.ownerUnit; break; }
+    }
+  }
 }
 
 function loadApiKeyStatus() {
@@ -4518,8 +6039,21 @@ async function pullComps(unitIndex) {
   const btn = $(`rcBtn${unitIndex}`);
   const resultsEl = $(`compResults${unitIndex}`);
 
+  if (btn && btn.disabled) return;                 // guard the double-click path
+
+  // Batch 2 guard 5: Pull Comps is a PAID RentCast request and shares the one
+  // browser-session budget with Fetch & Analyze. Reserve before issuing, so a
+  // double-click or an exhausted budget can never oversubscribe.
+  if (!rpcReserveCalls(1)) {
+    toast('RentCast call budget exhausted \u2014 0 of ' + RPC_CALL_BUDGET_MAX +
+          ' calls remain this browser session. No call was made.');
+    return;
+  }
+
   // Loading state
   if (btn) { btn.disabled = true; btn.classList.add('loading'); btn.textContent = 'Pulling...'; }
+
+  const generation = _rpcDealGeneration;           // Batch 8A §3.3
 
   try {
     const url = `https://api.rentcast.io/v1/listings/rental/long-term`
@@ -4531,6 +6065,11 @@ async function pullComps(unitIndex) {
     const resp = await fetch(url, {
       headers: { 'X-Api-Key': key, 'Accept': 'application/json' }
     });
+
+    // Batch 8A §3.3: a New Deal while this was in flight abandons the result.
+    // The call was ISSUED, so it stays counted — it is never refunded — but
+    // nothing is rendered into, or written onto, the new deal.
+    if (!rpcGenerationCurrent(generation)) return;
 
     if (resp.status === 401) {
       toast('Invalid API key — check your RentCast account');
@@ -4550,6 +6089,13 @@ async function pullComps(unitIndex) {
 
     const data = await resp.json();
 
+    // Batch 8A v2/C3: body parsing is a SECOND await. A reset can land between
+    // the headers resolving and the body finishing, so the generation is
+    // rechecked here — immediately before any render, toast, or panel write
+    // caused by this transaction. The paid call was already issued and stays
+    // consumed; it is never refunded.
+    if (!rpcGenerationCurrent(generation)) return;
+
     // RentCast returns an array of listing objects
     const listings = Array.isArray(data) ? data : (data.listings || data.results || []);
 
@@ -4563,11 +6109,15 @@ async function pullComps(unitIndex) {
     toast(`${listings.length} comp(s) loaded for Unit ${unitIndex + 1}`);
 
   } catch(err) {
+    if (!rpcGenerationCurrent(generation)) return;   // Batch 8A §3.3
     console.error('RentCast error:', err);
     toast('Network error — check your connection');
     resultsEl.innerHTML = '';
   } finally {
+    // The request was issued, so the reservation stands even on 401/429/network
+    // failure. Only refresh the on-screen counter here.
     if (btn) { btn.disabled = false; btn.classList.remove('loading'); btn.textContent = 'Pull Comps'; }
+    rpcRenderCallBudget();
   }
 }
 
@@ -4628,10 +6178,12 @@ function renderCompResults(unitIndex, listings, beds) {
 }
 
 function useCompRent(unitIndex, rent) {
+  rpcMarkFullAuthored();   // v3: applying a comp authors this unit's rent
   const el = $(`rent${unitIndex}`);
   if (el) {
     el.value = rent;
     updateRange(unitIndex);
+    applyAutoOwnerUnit();   // Batch 7C v2 (Blocker 4): a comp rent write must reselect the Auto owner unit; no-op in Manual.
     calc();
     toast(`Unit ${unitIndex + 1} set to ${fmt(rent)}`);
   }
@@ -4643,41 +6195,137 @@ function useCompRent(unitIndex, rent) {
    RentCast + HUD: routed via Cloudflare Worker proxy (worker.js)
 ═══════════════════════════════════════ */
 
-async function fetchPropertyData(address) {
-  const geo = await geocodeCensus(address);
+/**
+ * Fetch property context for an address.
+ *
+ * Batch 2 safety:
+ *  - The Census matchedAddress must agree with the requested address BEFORE any
+ *    paid RentCast request is issued (fails closed, zero paid calls).
+ *  - One AVM request per UNIQUE bedroom count on screen (no hard-coded 2BR); the
+ *    whole batch is reserved atomically against the session budget first.
+ *  - lastSalePrice is returned as informational context ONLY. It is never mapped
+ *    to purchasePrice.
+ *
+ * Throws an Error carrying `.rpcAddressMismatch` when identity fails, so the
+ * caller can show requested vs returned and stop.
+ */
+async function fetchPropertyData(address, requestedAddressSnapshot) {
+  const addressSnapshot = String(
+    requestedAddressSnapshot == null ? address : requestedAddressSnapshot).trim();
+  // Detect edits during the free geocode too. The required paid-batch
+  // fingerprint is captured again immediately before reservation below.
+  const fetchStartFingerprint = rpcUnitPlanFingerprint();
+  const startGeneration = _rpcDealGeneration;        // Batch 8A §3.3
+  const geo = await geocodeCensus(address);          // Census is free — not counted
 
-  // Parallel fetch — geocode first (required for HUD FIPS), then all three APIs at once
-  const [rentcastProp, rentcastRent, hudFmr] = await Promise.all([
-    fetch(PROXY + '/rentcast/properties?address=' + encodeURIComponent(address))
-      .then(function(r) { return r.json(); }).catch(function() { return null; }),
-    fetch(PROXY + '/rentcast/avm/rent/long-term?address=' + encodeURIComponent(address) + '&propertyType=Multi-Family&bedrooms=2&bathrooms=1')
-      .then(function(r) { return r.json(); }).catch(function() { return null; }),
-    fetch(PROXY + '/hud/fmr/data/' + geo.state + geo.countyFips + '99999?year=2026')
-      .then(function(r) { return r.json(); }).catch(function() { return null; })
-  ]);
+  // A New Deal during the free geocode abandons the whole transaction BEFORE
+  // any paid call is reserved or issued.
+  if (!rpcGenerationCurrent(startGeneration)) {
+    throw rpcStaleGenerationError('geocode', startGeneration, _rpcDealGeneration);
+  }
+
+  const afterGeocodeAddress = rpcRequestedAddressSnapshot();
+  if (afterGeocodeAddress !== addressSnapshot) {
+    throw rpcStaleAddressError('geocode', addressSnapshot, afterGeocodeAddress);
+  }
+  const afterGeocodeFingerprint = rpcUnitPlanFingerprint();
+  if (afterGeocodeFingerprint !== fetchStartFingerprint) {
+    throw rpcStaleUnitPlanError('geocode', fetchStartFingerprint, afterGeocodeFingerprint);
+  }
+
+  // ── Guard 1: fail closed on a wrong address, before any paid call ──────────
+  const idCheck = rpcAddressMatch(address, geo.matchedAddress);
+  if (!idCheck.ok) {
+    const err = new Error(idCheck.detail);
+    err.rpcAddressMismatch = idCheck;
+    throw err;
+  }
+
+  // ── Guard 5: reserve the whole paid batch atomically (1 properties + 1 AVM
+  // per unique bedroom count). Zero paid calls if the budget cannot cover it.
+  const plan = rpcPlanRentRequests();
+  const unitPlanFingerprint = rpcUnitPlanFingerprint();
+  const needed = 1 + plan.length;
+  if (!rpcReserveCalls(needed)) {
+    const err = new Error(
+      'RentCast call budget: this fetch needs ' + needed + ' call(s) but only ' +
+      rpcCallsRemaining() + ' of ' + RPC_CALL_BUDGET_MAX +
+      ' remain this browser session. No paid calls were made.');
+    err.rpcBudgetExhausted = { needed: needed, remaining: rpcCallsRemaining() };
+    throw err;
+  }
+
+  // Paid RentCast requests (reserved above) + free HUD FMR, in parallel.
+  const rentcastPropP = fetch(PROXY + '/rentcast/properties?address=' + encodeURIComponent(address))
+    .then(function(r) { return r.json(); }).catch(function() { return null; });
+  const rentPromises = plan.map(function (g) {
+    return fetch(PROXY + '/rentcast/avm/rent/long-term?address=' + encodeURIComponent(address)
+        + '&propertyType=Multi-Family&bedrooms=' + encodeURIComponent(g.beds))
+      .then(function(r) { return r.json(); }).catch(function() { return null; });
+  });
+  const hudFmrP = fetch(PROXY + '/hud/fmr/data/' + geo.state + geo.countyFips + '99999?year=2026')
+    .then(function(r) { return r.json(); }).catch(function() { return null; });
+
+  const settled = await Promise.all([rentcastPropP, Promise.all(rentPromises), hudFmrP]);
+  const rentcastProp = settled[0], rentResults = settled[1], hudFmr = settled[2];
+
+  // The paid calls have already been issued and therefore remain counted. A
+  // changed form invalidates the ENTIRE fetched transaction before any preview
+  // is built; never apply only the still-matching subset.
+  // The paid calls were already ISSUED, so they remain counted and are never
+  // refunded — but a deal that no longer exists receives zero fields.
+  if (!rpcGenerationCurrent(startGeneration)) {
+    throw rpcStaleGenerationError('responses', startGeneration, _rpcDealGeneration);
+  }
+  const afterResponseFingerprint = rpcUnitPlanFingerprint();
+  if (afterResponseFingerprint !== unitPlanFingerprint) {
+    throw rpcStaleUnitPlanError('responses', unitPlanFingerprint, afterResponseFingerprint);
+  }
+  const afterResponseAddress = rpcRequestedAddressSnapshot();
+  if (afterResponseAddress !== addressSnapshot) {
+    throw rpcStaleAddressError('responses', addressSnapshot, afterResponseAddress);
+  }
 
   const prop = Array.isArray(rentcastProp) ? rentcastProp[0] : rentcastProp;
   const basicdata = hudFmr && hudFmr.data && hudFmr.data.basicdata && hudFmr.data.basicdata[0];
 
+  // ── Guard 3: map each AVM result ONLY to units with that bedroom count. A
+  // missing/invalid estimate for one group never overwrites another group.
+  const rentByBeds = {};
+  for (let i = 0; i < plan.length; i++) {
+    const g = plan[i];
+    const res = rentResults[i];
+    const est = rpcPositiveNumber(res && res.rent);
+    const floor = rpcHudFloorForBeds(basicdata, g.beds);   // bedroom-specific HUD floor
+    rentByBeds[g.beds] = {
+      beds: g.beds,
+      units: g.units,
+      estimatedRent: est,
+      rentLow: res && res.rentRangeLow ? res.rentRangeLow : null,
+      rentHigh: res && res.rentRangeHigh ? res.rentRangeHigh : null,
+      hudFloor: floor
+    };
+  }
+
   return {
     geo: geo,
-    purchasePrice: prop && prop.lastSalePrice ? prop.lastSalePrice : null,
+    // Informational only — NEVER the purchase price (Batch 2 guard 2).
+    lastSalePrice: prop && prop.lastSalePrice ? prop.lastSalePrice : null,
+    lastSaleDate: prop && prop.lastSaleDate ? prop.lastSaleDate : null,
     yearBuilt: prop && prop.yearBuilt ? prop.yearBuilt : null,
     squareFootage: prop && prop.squareFootage ? prop.squareFootage : null,
     assessedValue: prop && prop.taxAssessments && prop.taxAssessments.value ? prop.taxAssessments.value : null,
-    estimatedRent: rentcastRent && rentcastRent.rent ? rentcastRent.rent : null,
-    rentLow: rentcastRent && rentcastRent.rentRangeLow ? rentcastRent.rentRangeLow : null,
-    rentHigh: rentcastRent && rentcastRent.rentRangeHigh ? rentcastRent.rentRangeHigh : null,
-    hudFmrFloor2br: basicdata && basicdata['Two-Bedroom'] ? basicdata['Two-Bedroom'] : null
+    rentByBeds: rentByBeds,
+    rentPlan: plan,
+    unitPlanFingerprint: unitPlanFingerprint,
+    requestedAddressSnapshot: addressSnapshot,
+    hudBasicData: basicdata || null
   };
 }
 
 function estimateMnInsurance(price, units) {
-  // Source: Steadily + Clovered MN median ~$1,469/yr; duplex $1,800-$2,800
-  const base = 1500;
-  const perUnit = 400;
-  const valueFactor = Math.max(1, price / 300000);
-  return Math.round((base + perUnit * units) * valueFactor);
+  // units retained for existing callers; insurance defaults to 1% of purchase price.
+  return Math.round(price * 0.01);
 }
 
 function markAutofilled(id, source) {
@@ -4692,6 +6340,266 @@ function markAutofilled(id, source) {
   });
 }
 
+/* ─── Batch 2 guard 4: preview transaction ───────────────────────────────────
+   Fetch produces a PROPOSAL, never an immediate mutation. _rpcPreview holds the
+   complete before-state plus the proposed value/source per field. Cancel writes
+   nothing; Apply writes only the selected fields and recalculates once. */
+
+let _rpcPreview = null;
+
+/**
+ * Read-only accessor for the pending proposal. This is a deterministic test seam
+ * for the offline harness (scripts/audit_fetch_safety.mjs) — it exposes state
+ * only and cannot issue a request or mutate the form.
+ */
+function rpcGetPreview() { return _rpcPreview; }
+
+/** Current value of a proposed field, read straight from the live form. */
+function rpcReadField(id) {
+  const el = $(id);
+  return el ? String(el.value) : '';
+}
+
+/** Build the proposed-changes list from a fetchPropertyData() result. */
+function rpcBuildProposal(data) {
+  const geo = data.geo;
+  const items = [];
+  const push = function (id, label, proposed, source, dependencies) {
+    if (proposed === null || proposed === undefined || proposed === '') return;
+    if (!$(id)) return;                                 // field not surfaced in this build
+    const current = rpcReadField(id);
+    if (String(current) === String(proposed)) return;   // nothing to change
+    items.push({
+      id: id, label: label, current: current,
+      proposed: String(proposed), source: source, apply: true,
+      dependencies: dependencies || {}
+    });
+  };
+
+  if (geo.zip) push('zipCode', 'ZIP code', geo.zip, 'Census');
+
+  const mnCountyEl = $('mnCounty');
+  if (mnCountyEl && geo.county) {
+    const normalized = geo.county.replace(' county', '').trim();
+    const match = [...mnCountyEl.options].find(function (o) { return o.value === normalized; });
+    if (match) push('mnCounty', 'County', normalized, 'Census');
+  }
+
+  if (data.yearBuilt) push('yearBuilt', 'Year built', data.yearBuilt, 'RentCast');
+  if (data.squareFootage) push('sqft', 'Square footage', data.squareFootage, 'RentCast');
+  if (data.assessedValue) push('assessedValue', 'Assessed value', data.assessedValue, 'RentCast');
+
+  // Rents — bedroom-specific, mapped only to units with that bedroom count.
+  const byBeds = data.rentByBeds || {};
+  Object.keys(byBeds).forEach(function (k) {
+    const g = byBeds[k];
+    const avm = rpcPositiveNumber(g.estimatedRent);
+    const hud = rpcPositiveNumber(g.hudFloor);
+    if (avm === null && hud === null) return;            // no valid source for THIS group
+    const rent = avm === null ? hud : (hud === null ? avm : Math.max(avm, hud));
+    const src = (hud !== null && rent === hud)
+      ? ('HUD FMR ' + g.beds + 'BR floor')
+      : ('RentCast AVM ' + g.beds + 'BR');
+    g.units.forEach(function (i) {
+      push('rent' + i, 'Unit ' + (i + 1) + ' rent (' + g.beds + 'BR)', rent, src);
+    });
+  });
+
+  // Insurance default — 1% of the EXPLICIT purchase price field, never last sale.
+  const priceDependency = rpcReadField('purchasePrice');
+  const price = getNum('purchasePrice');
+  const insEl = $('annualIns');
+  if (price > 0 && insEl && !insEl.value) {
+    push('annualIns', 'Insurance (annual)',
+      estimateMnInsurance(price, parseInt($('propType').value)), '1% of purchase price',
+      { purchasePrice: priceDependency });
+  }
+  return items;
+}
+
+function rpcClearElement(el) {
+  while (el && el.firstChild) el.removeChild(el.firstChild);
+}
+
+function rpcAppendTextElement(parent, tag, className, value) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  el.textContent = String(value == null ? '' : value);
+  parent.appendChild(el);
+  return el;
+}
+
+function rpcRenderPreview() {
+  const p = _rpcPreview;
+  const body = $('fetchPreviewBody');
+  if (!p || !body) return;
+  rpcClearElement(body);
+
+  // Last recorded sale — informational context only; never a proposed change.
+  let sale = 'n/a';
+  if (p.data.lastSalePrice !== null && p.data.lastSalePrice !== undefined && p.data.lastSalePrice !== '') {
+    const numericSale = Number(p.data.lastSalePrice);
+    sale = Number.isFinite(numericSale)
+      ? ('$' + numericSale.toLocaleString())
+      : String(p.data.lastSalePrice);
+    if (p.data.lastSaleDate) sale += ' (' + String(p.data.lastSaleDate) + ')';
+  }
+  const info = document.createElement('div');
+  info.className = 'rpc-pv-info';
+  info.id = 'fetchPreviewLastSale';
+  rpcAppendTextElement(info, 'strong', '', 'Last recorded sale:');
+  info.appendChild(document.createTextNode(' ' + sale + ' '));
+  rpcAppendTextElement(info, 'span', 'rpc-pv-note',
+    '\u2014 informational only; does not change your purchase price');
+  body.appendChild(info);
+
+  if (p.items.length) {
+    const head = document.createElement('div');
+    head.className = 'rpc-pv-head';
+    ['Field', 'Current', '', 'Fetched', 'Source'].forEach(function (label) {
+      rpcAppendTextElement(head, 'span', '', label);
+    });
+    body.appendChild(head);
+
+    p.items.forEach(function (it, idx) {
+      const row = document.createElement('label');
+      row.className = 'rpc-pv-row';
+      const ck = document.createElement('input');
+      ck.type = 'checkbox';
+      ck.className = 'rpc-pv-ck';
+      ck.checked = !!it.apply;
+      ck.addEventListener('change', function () {
+        if (_rpcPreview && _rpcPreview.items[idx]) _rpcPreview.items[idx].apply = this.checked;
+      });
+      row.appendChild(ck);
+      rpcAppendTextElement(row, 'span', 'rpc-pv-field', it.label);
+      rpcAppendTextElement(row, 'span', 'rpc-pv-cur', it.current === '' ? '(empty)' : it.current);
+      rpcAppendTextElement(row, 'span', 'rpc-pv-arrow', '\u2192');
+      rpcAppendTextElement(row, 'span', 'rpc-pv-new', it.proposed);
+      rpcAppendTextElement(row, 'span', 'rpc-pv-src', it.source);
+      body.appendChild(row);
+    });
+  } else {
+    rpcAppendTextElement(body, 'div', 'rpc-pv-note', 'No field changes proposed.');
+  }
+  const apply = $('fetchPreviewApply');
+  if (apply) apply.style.display = '';       // a mismatch view may have hidden it
+  const ov = $('fetchPreviewOverlay');
+  if (ov) ov.classList.add('show');
+}
+
+/** Cancel: write nothing. Every form value stays byte-for-byte unchanged. */
+function rpcCancelPreview() {
+  _rpcPreview = null;
+  const ov = $('fetchPreviewOverlay');
+  if (ov) ov.classList.remove('show');
+  toast('Fetch canceled \u2014 no fields changed');
+}
+
+/** Discard a stale/invalid proposal as one transaction and close its UI. */
+function rpcDiscardPreview(message) {
+  _rpcPreview = null;
+  rpcClearElement($('fetchPreviewBody'));
+  const ov = $('fetchPreviewOverlay');
+  if (ov) ov.classList.remove('show');
+  if (message) toast(message);
+}
+
+/** Apply: mutate ONLY the selected proposed fields, then recalculate once. */
+function rpcApplyPreview() {
+  const p = _rpcPreview;
+  if (!p) return;
+
+  // Batch 8A §3.3: a proposal belongs to the deal that requested it. After a
+  // New Deal it applies zero fields and repopulates nothing.
+  if (p.generation !== undefined && !rpcGenerationCurrent(p.generation)) {
+    rpcDiscardPreview('A new deal was started while the preview was open. Nothing was applied.');
+    return;
+  }
+
+  // A preview describes one coherent form transaction. Any property-type or
+  // bedroom change invalidates the whole preview before the first write.
+  const currentFingerprint = rpcUnitPlanFingerprint();
+  if (!p.unitPlanFingerprint || p.unitPlanFingerprint !== currentFingerprint) {
+    rpcDiscardPreview('Unit mix changed while the preview was open. Nothing was applied; Fetch & Analyze again.');
+    return;
+  }
+
+  const currentAddress = rpcRequestedAddressSnapshot();
+  if (!p.requestedAddressSnapshot || p.requestedAddressSnapshot !== currentAddress) {
+    rpcDiscardPreview('The requested address changed while the preview was open. Nothing was applied; Fetch & Analyze again.');
+    return;
+  }
+
+  // Validate the COMPLETE selected transaction before its first write. A
+  // missing/edited target or a changed dependency invalidates every selection;
+  // unselected nondependencies do not block a valid Apply.
+  const selected = p.items.filter(function (it) { return !!it.apply; });
+  let conflict = '';
+  for (let i = 0; i < selected.length && !conflict; i++) {
+    const it = selected[i];
+    const el = $(it.id);
+    if (!el) {
+      conflict = it.label + ' is no longer available';
+      break;
+    }
+    if (String(el.value) !== String(it.current)) {
+      conflict = it.label + ' changed after the preview was created';
+      break;
+    }
+    const deps = it.dependencies || {};
+    const depIds = Object.keys(deps);
+    for (let d = 0; d < depIds.length; d++) {
+      const depId = depIds[d];
+      const depEl = $(depId);
+      if (!depEl || String(depEl.value) !== String(deps[depId])) {
+        conflict = depId + ' changed after the preview was created';
+        break;
+      }
+    }
+  }
+  if (conflict) {
+    rpcDiscardPreview(
+      conflict + '. Nothing was applied; review the form and Fetch & Analyze again.');
+    return;
+  }
+
+  let applied = 0;
+  let appliedFullRent = false;   // v4/Issue 1
+  selected.forEach(function (it) {
+    const el = $(it.id);
+    el.value = it.proposed;
+    markAutofilled(it.id, it.source);
+    applied++;
+    const m = /^rent(\d+)$/.exec(it.id);
+    if (m) { appliedFullRent = true; updateRange(parseInt(m[1], 10)); }
+  });
+
+  // v4/Issue 1: a fetched rent the user accepted is authored per-deal input, so
+  // it must survive a Full <-> Rapid round trip instead of being flattened into
+  // an equal split. Only a successfully applied Full rent field counts —
+  // applying ZIP, insurance or any other field authors no unit plan.
+  if (appliedFullRent) rpcMarkFullAuthored();
+
+  const geo = p.data.geo;
+  _geoLat = geo.lat;
+  _geoLng = geo.lng;
+  updateRedfinLink();
+  if (geo.zip) updateZoriChip(geo.zip);
+  const applyGeneration = _rpcDealGeneration;              // Batch 8A §3.3
+  fetchFemaData(geo.lat, geo.lng).then(function (zone) {   // free service
+    if (!rpcGenerationCurrent(applyGeneration)) return;    // no badge for a cleared deal
+    updateFloodBadge(zone);
+  }).catch(function () {});
+
+  _rpcPreview = null;
+  const ov = $('fetchPreviewOverlay');
+  if (ov) ov.classList.remove('show');
+  applyAutoOwnerUnit();   // Batch 7C v2 (Blocker 4): reselect the Auto owner unit after the applied rent writes, before the single final calc; no-op in Manual.
+  calc();
+  toast(applied + ' field(s) updated. Verify highlighted fields.');
+}
+
 async function fetchAndAnalyze() {
   const addr = $('address').value.trim();
   if (!addr) {
@@ -4700,82 +6608,78 @@ async function fetchAndAnalyze() {
   }
 
   const btn = $('btn-fetch');
+  if (btn && btn.disabled) return;                 // guard the double-click path
   if (btn) { btn.disabled = true; btn.textContent = 'Fetching...'; }
+
+  const generation = _rpcDealGeneration;           // Batch 8A §3.3
 
   try {
     toast('Geocoding address\u2026');
-    const data = await fetchPropertyData(addr);
-    const geo = data.geo;
+    const data = await fetchPropertyData(addr, addr); // fails closed on stale/mismatch/budget
 
-    // Zip
-    if (geo.zip) {
-      $('zipCode').value = geo.zip;
-      markAutofilled('zipCode', 'Census');
-    }
+    // A New Deal while this was in flight: apply zero fields and open no preview.
+    if (!rpcGenerationCurrent(generation)) return;
 
-    // County dropdown (if present)
-    const mnCountyEl = $('mnCounty');
-    if (mnCountyEl && geo.county) {
-      const normalized = geo.county.replace(' county', '').trim();
-      const match = [...mnCountyEl.options].find(function(o) { return o.value === normalized; });
-      if (match) {
-        mnCountyEl.value = normalized;
-        markAutofilled('mnCounty', 'Census');
-      }
-    }
-
-    // Purchase price from last sale record
-    if (data.purchasePrice) {
-      $('purchasePrice').value = data.purchasePrice;
-      markAutofilled('purchasePrice', 'RentCast');
-    }
-
-    // Rent: RentCast estimate floored by HUD FMR
-    const rentDefault = Math.max(data.estimatedRent || 0, data.hudFmrFloor2br || 0);
-    if (rentDefault > 0) {
-      const n = parseInt($('propType').value);
-      const src = (data.hudFmrFloor2br && rentDefault === data.hudFmrFloor2br) ? 'HUD FMR' : 'RentCast';
-      for (let i = 0; i < n; i++) {
-        const el = $('rent' + i);
-        if (el) {
-          el.value = rentDefault;
-          markAutofilled('rent' + i, src);
-          updateRange(i);
-        }
-      }
-    }
-
-    // MN insurance estimate (only pre-fills if field is empty)
-    const price = data.purchasePrice || getNum('purchasePrice');
-    if (price > 0) {
-      const insEl = $('annualIns');
-      if (insEl && !insEl.value) {
-        insEl.value = estimateMnInsurance(price, parseInt($('propType').value));
-        markAutofilled('annualIns', 'MN estimate');
-      }
-    }
-
-    calc();
-
-    // Store geo for FEMA + Redfin
-    _geoLat = geo.lat;
-    _geoLng = geo.lng;
-    updateRedfinLink();
-    if (geo.zip) updateZoriChip(geo.zip);
-
-    // FEMA flood zone — async, non-blocking
-    fetchFemaData(geo.lat, geo.lng).then(function(zone) {
-      updateFloodBadge(zone);
-    }).catch(function() {});
-
-    toast('Pre-filled from Census + RentCast. Verify highlighted fields.');
+    _rpcPreview = {
+      data: data,
+      items: rpcBuildProposal(data),
+      unitPlanFingerprint: data.unitPlanFingerprint,
+      requestedAddressSnapshot: data.requestedAddressSnapshot,
+      generation: generation
+    };
+    rpcRenderPreview();                            // proposal only — no mutation yet
 
   } catch(e) {
-    console.error('fetchAndAnalyze:', e);
-    toast('Fetch error: ' + e.message);
+    // A stale-generation transaction shows no prior-deal UI at all (§3.3).
+    if (!rpcGenerationCurrent(generation)) return;
+    if (e && e.rpcAddressMismatch) {
+      const mm = e.rpcAddressMismatch;
+      rpcShowAddressMismatch(mm);
+      toast('Address mismatch \u2014 nothing fetched or changed');
+    } else if (e && e.rpcBudgetExhausted) {
+      toast(e.message);
+    } else if (e && (e.rpcStaleUnitPlan || e.rpcStaleAddress)) {
+      rpcDiscardPreview(e.message);
+    } else {
+      console.error('fetchAndAnalyze:', e);
+      toast('Fetch error: ' + e.message);
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '\u26A1 Fetch \u0026 Analyze'; }
+    rpcRenderCallBudget();
   }
+}
+
+/** Show requested vs returned and require the user to correct/retry. */
+function rpcShowAddressMismatch(mm) {
+  const body = $('fetchPreviewBody');
+  if (!body) return;
+  _rpcPreview = null;
+  rpcClearElement(body);
+
+  const warn = document.createElement('div');
+  warn.className = 'rpc-pv-warn';
+  warn.id = 'fetchAddressMismatch';
+  rpcAppendTextElement(warn, 'strong', '', 'Address mismatch \u2014 nothing was fetched or changed.');
+  rpcAppendTextElement(warn, 'div', 'rpc-pv-note',
+    String(mm.detail || '') + ' No paid RentCast calls were made and no fields were touched. ' +
+    'Correct the address and try again.');
+
+  const addComparison = function (label, id, value) {
+    const row = document.createElement('div');
+    row.className = 'rpc-pv-cmp';
+    rpcAppendTextElement(row, 'span', '', label);
+    const code = rpcAppendTextElement(row, 'code', '', value);
+    code.id = id;
+    warn.appendChild(row);
+  };
+  addComparison('You requested', 'mmRequested', mm.requested || '(empty)');
+  addComparison('Census returned', 'mmReturned', mm.returned || '(none)');
+  body.appendChild(warn);
+  const apply = $('fetchPreviewApply');
+  if (apply) apply.style.display = 'none';
+  const ov = $('fetchPreviewOverlay');
+  if (ov) ov.classList.add('show');
 }
 
 function saveProxyUrl() {
@@ -4984,6 +6888,8 @@ function resumeLastSession() {
     $('resumeBanner').style.display = 'none';
     calc();
     rapidCalc();
+    rpcMarkFullAuthored();   // v3: a restored session carries real authored unit values
+    rpcCaptureFullDraft();   // Batch 8A §4.4: restored mixed rents become this deal's draft.
     toast('Session restored');
   } catch(e) { toast('Could not restore session'); }
 }
@@ -5015,6 +6921,11 @@ function checkSessionResume() {
 ═══════════════════════════════════════ */
 let journalFilter = 'all';
 let journalSelected = new Set();
+
+/* Batch 8A: outcome of the most recent triage() call — 'create', 'update', or
+   'blocked' (ambiguous identity, zero writes). Read-only test seam. */
+let _rpcJournalLastResult = null;
+function rpcGetJournalTriageResult() { return _rpcJournalLastResult; }
 
 function getJournal() {
   try { return JSON.parse(localStorage.getItem('rpc-deals-v1') || '[]'); } catch(e) { return []; }
@@ -5050,35 +6961,69 @@ function triage(key) {
   const snap = snapshotFields();
   const deals = getJournal();
 
-  // Check if this address already exists — update it
-  const existing = deals.find(d => d.address && d.address === addr && d.zip === zip);
+  // ── Batch 8A §2.3: property identity triage ────────────────────────────────
+  // 1. derive a trustworthy current v2 key;
+  // 2. derive missing keys for historical entries IN MEMORY (no bulk migration);
+  // 3. exactly one v2 match updates that entry;
+  // 4. two or more historical entries on one key fail closed with zero writes;
+  // 5. no trustworthy identity permits ONLY the existing exact raw match;
+  // 6. no match creates one new entry.
+  const keyV2 = rpcJournalKeyV2(rpcJournalIdentity(addr, zip));
+  let existing = null;
+  if (keyV2) {
+    const matches = deals.filter(d => rpcJournalEntryKeyV2(d) === keyV2);
+    if (matches.length > 1) {
+      // Never auto-merge, delete, or silently pick one of them.
+      _rpcJournalLastResult = { action: 'blocked', reason: 'ambiguous', keyV2: keyV2, matches: matches.length };
+      toast('This address matches ' + matches.length + ' saved deals — nothing was saved. ' +
+            'Open the journal and remove the duplicate before triaging.');
+      return;
+    }
+    if (matches.length === 1) existing = matches[0];
+  } else {
+    existing = deals.find(d => d.address && d.address === addr && d.zip === zip) || null;
+  }
+
   const now = Date.now();
 
-  const entry = {
-    id: existing ? existing.id : now,
-    address: addr,
-    url: '',
-    price,
-    totalRent,
-    MAO,
-    verdict,
-    triage: key,
-    unitMix,
-    propertyType: n,
-    zip,
-    county,
-    market: county || 'MN',
-    confidence: 'manual',
-    notes: existing ? existing.notes || '' : '',
-    createdAt: existing ? existing.createdAt : now,
-    updatedAt: now,
-    fullSnapshot: snap
-  };
+  // §2.4: update in place. Unknown fields from older/newer journal schema
+  // versions, the entry id, createdAt, notes, stored URL state, and the
+  // first-seen display address all survive a variant-address update.
+  const entry = Object.assign({}, existing || {});
+  entry.price = price;
+  entry.totalRent = totalRent;
+  entry.MAO = MAO;
+  entry.verdict = verdict;
+  entry.triage = key;
+  entry.unitMix = unitMix;
+  entry.propertyType = n;
+  entry.county = county;
+  entry.market = county || 'MN';
+  entry.confidence = 'manual';
+  entry.updatedAt = now;
+  entry.fullSnapshot = snap;
+  if (existing) {
+    entry.zip = existing.zip ? existing.zip : zip;   // first-seen identity display
+    if (entry.notes === undefined || entry.notes === null) entry.notes = '';
+    if (entry.url === undefined || entry.url === null) entry.url = '';
+    if (!entry.createdAt) entry.createdAt = now;
+  } else {
+    entry.id = now;
+    entry.address = addr;
+    entry.url = '';
+    entry.zip = zip;
+    entry.notes = '';
+    entry.createdAt = now;
+  }
+  // Additive identity metadata only; idempotent lazy enrichment.
+  if (keyV2) entry.journalKeyV2 = keyV2;
 
   if (existing) {
     deals[deals.indexOf(existing)] = entry;
+    _rpcJournalLastResult = { action: 'update', id: entry.id, keyV2: keyV2, matchedBy: keyV2 ? 'v2' : 'legacy-exact' };
   } else {
     deals.unshift(entry);
+    _rpcJournalLastResult = { action: 'create', id: entry.id, keyV2: keyV2 };
   }
 
   setJournal(deals);
@@ -5177,8 +7122,11 @@ function loadDeal(id) {
   const triageRow = $('triageRow');
   if (triageRow) triageRow.style.display = '';
 
+  _ownerUnitMode = 'auto';   // Batch 7C v2 (Blocker 4): loading a deal returns owner-mode to Auto (saved owner index preserved; next rent edit reselects).
   setMode('full');
   calc();
+  rpcMarkFullAuthored();     // v3: a saved deal carries real authored unit values
+  rpcCaptureFullDraft();     // Batch 8A §4.4: the loaded mixed rents become this deal's draft.
   toast('Loaded: ' + (d.address || 'deal'));
 }
 
@@ -5270,6 +7218,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Zip code listener for comp links + Redfin + ZORI
+rpcAttachStateWatchers();   // v4: attach immediately when the DOM is already parsed
 document.addEventListener('DOMContentLoaded', () => {
   const zipEl = $('zipCode');
   if (zipEl) {
@@ -5281,9 +7230,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (zip.length === 5) updateZoriChip(zip);
     });
   }
+  rpcAttachStateWatchers();
   updateRedfinLink();
   // Fetch ZORI once on load (30-day cache)
+  const zoriGeneration = rpcDealGeneration();   // Batch 8A v2/C4
   fetchZoriData().then(function() {
+    // A New Deal during this free fetch must not repaint property context onto
+    // the cleared surface. The durable cache is still written by fetchZoriData().
+    if (!rpcGenerationCurrent(zoriGeneration)) return;
     const zip = ($('zipCode') && $('zipCode').value.trim()) || '';
     if (zip.length === 5) updateZoriChip(zip);
   }).catch(function() {});
