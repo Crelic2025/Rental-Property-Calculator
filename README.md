@@ -6,13 +6,11 @@ Built around the **BiggerPockets Four Square Method** and the conservative under
 
 -----
 
-## Current Canonical Build
+## Source roles and release authority
 
-- **Current version:** Rental Property Calculator v7.3 · RPC v2-Aligned
-- **Canonical app file:** `index.html`
-- **Local canonical served copy:** `/Users/Crelic/Desktop/apps-server/rpc.html`
-- **Local URL when apps server is running:** `http://localhost:8888/rpc.html`
-- Older duplicate HTML files were removed/archived so future RPC requests resolve to one current build.
+**RPC source roles, not one interchangeable release:** Official bulk underwriting uses `/Users/Crelic/Desktop/For Hermes/Active/rpc-bulk-underwriter/`. The documented local manual-calculator serving/edit target is `/Users/Crelic/Desktop/apps-server/rpc.html`. The HTML-hosting Worker source is separately located at `/Users/Crelic/rpc-proxy/worker.js`; preserve its own embedded HTML baseline. `/Users/Crelic/Desktop/For Hermes/Active/rpc-proxy/worker.js` is a distinct API-only proxy implementation, not an interchangeable hosting source. `/Users/Crelic/Desktop/For Hermes/Active/rpc-bulk-underwriter/_references/Rental-Property-Calculator-v7-index.html` is the tracked historical Batch 8A reference, not an automatic latest-release source. `/Users/Crelic/Desktop/For Hermes/Active/Rental-Property-Calculator-v7/index-1.html` is an older standalone copy, not an approved shipping default. `/Users/Crelic/Desktop/Rental-Property-Calculator/index.html` also exists as a separate repository copy; this inventory does not establish its promotion authority. Do not overwrite or synchronize these files based on their names, dates or v7.x badges. Current public bytes, version and traffic require a separately authenticated release readback; local files and historical notes do not certify production.
+
+The remaining feature/setup/version notes describe historical standalone-browser behavior. They are not the current bulk-underwriter runbook, financial policy contract, or proof of public deployment. Rentometer controls official underwriting rents; this HTML's manual/RentCast controls do not by themselves establish official rent provenance. Historical setup/deploy commands below require a separately approved target and release plan.
 
 -----
 
@@ -282,6 +280,8 @@ Green = within market range, red = below market (likely under-comping), amber = 
 
 ### Optional: Cloudflare Worker Proxy Setup (for ⚡ Fetch & Analyze)
 
+Historical repository setup example, not deployment authority for either existing rpc-proxy directory. Do not run these commands against an existing deployment without a separately approved release target and baseline.
+
 `worker.js` in the repo root is a Cloudflare Worker that proxies RentCast and HUD FMR requests, hiding your API keys from the client-side HTML file.
 
 **Prerequisites:** [Node.js](https://nodejs.org) + `wrangler` CLI (`npm install -g wrangler`)
@@ -319,7 +319,9 @@ npx wrangler secret put HUD_API_TOKEN      # paste token when prompted
 1. Paste your key, tap **Save Key**
 1. Each unit now has a **Pull Comps** button that fetches live rent comps
 
-### Typical Workflow (per deal)
+### Historical standalone-browser workflow — not official bulk underwriting
+
+Gut estimates and RentCast comparisons below are sensitivity inputs, not official Rentometer-rent authorization. Do not promote these modeled results into official reporting solely because the browser displays a verdict.
 
 1. Tap **＋ New Deal** (keeps your saved defaults, clears per-deal fields)
 1. Stay in Rapid Screen mode
@@ -334,7 +336,7 @@ npx wrangler secret put HUD_API_TOKEN      # paste token when prompted
 
 ## Version History
 
-**v6.1** (Current) — Statewide MN market intelligence: 17 submarkets with 2026 rent data. Zip-based auto-detect with manual override dropdown. Nearest-zip fallback for unknown areas. Verified vs. interpolated rent flags on chips and range bars. Market banner showing active market + confidence signal. Deal records now store selected market for comparison.
+**v6.1** (Historical) — Statewide MN market intelligence: 17 submarkets with 2026 rent data. Zip-based auto-detect with manual override dropdown. Nearest-zip fallback for unknown areas. Verified vs. interpolated rent flags on chips and range bars. Market banner showing active market + confidence signal. Deal records now store selected market for comparison.
 
 **v5.0** — Comprehensive help system with plain-English walkthroughs for every section. Bedroom-type dropdowns with auto-filled defaults from market ranges. Visual range indicators per unit.
 
